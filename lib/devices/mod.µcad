@@ -11,4 +11,6 @@
 pub mod rpi4;
 pub mod rpi_zero;
 pub mod pico;
+pub mod nucleo;
+pub mod nrf52840dk;
 pub mod minipc;

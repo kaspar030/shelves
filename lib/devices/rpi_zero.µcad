@@ -4,6 +4,7 @@
 
 pub const BOARD_W = 65mm;
 pub const BOARD_D = 30mm;
+pub const BOARD_T = 1.6mm;
 pub const HOLE_DX = 58mm;
 pub const HOLE_DY = 23mm;
 pub const SCREW_D = 2.6mm;

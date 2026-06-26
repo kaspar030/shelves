@@ -31,25 +31,32 @@ const SQRT3 = 1.7320508075688772;
 pub part Plug(
     af = 14.0mm,           // = HEX_AF (hole across-flats)
     clear = 0.35mm,        // = PLUG_CLEAR
-    barb = 0.6mm,          // = PLUG_BARB
+    barb = 0.45mm,         // = PLUG_BARB
     barb_h = 1.2mm,        // = PLUG_BARB_H
     surface_t = 2.4mm,     // surface thickness to pass through
 ) {
     r_shaft = (af - clear) / SQRT3;
     r_barb  = (af - clear + 2 * barb) / SQRT3;
 
-    // Shaft spans from z=0 down through the surface plus the barb height.
-    total = surface_t + barb_h + 0.4mm;
+    // Shaft spans from a small collar ABOVE z=0 (so it fuses into a holder
+    // baseplate with no coincident face) down through the surface + barb.
+    collar = 0.6mm;
+    total = collar + surface_t + barb_h + 0.4mm;
     Hexagon(radius = r_shaft)
         .extrude(height = total)
-        .translate(z = -total);
+        .translate(z = collar - total);
 
-    // Retention barb at the tip: a hex that tapers from full size (top, the
-    // retention shoulder) down to the shaft size (bottom, the lead-in tip).
+    // Retention barb: a hex flange that tapers from full size (top = retention
+    // shoulder) down to the shaft size (bottom = lead-in). Its bottom sits
+    // 0.4mm ABOVE the shaft tip so the shaft pokes through as a lead-in. The
+    // barb is rotated 30° so its hex edges do NOT coincide with the shaft's
+    // (coincident coaxial hex edges confuse the boolean and leave non-manifold
+    // edges); offsetting the rotation yields a clean watertight union.
     taper = r_shaft / r_barb;
     Hexagon(radius = r_barb)
         .extrude(height = barb_h, scale = (x = taper, y = taper))
-        .translate(z = -total);
+        .rotate(z = 30°)
+        .translate(z = collar - total + 0.4mm);
 }
 
 // Two plugs stacked vertically in the SAME column, spacing one row-pitch apart,
@@ -61,7 +68,7 @@ pub part PlugPair(
     af = 14.0mm,
     wall = 3.0mm,
     clear = 0.35mm,
-    barb = 0.6mm,
+    barb = 0.45mm,
     barb_h = 1.2mm,
     surface_t = 2.4mm,
 ) {
@@ -77,7 +84,7 @@ pub part PlugColumn(
     af = 14.0mm,
     wall = 3.0mm,
     clear = 0.35mm,
-    barb = 0.6mm,
+    barb = 0.45mm,
     barb_h = 1.2mm,
     surface_t = 2.4mm,
 ) {
@@ -97,7 +104,7 @@ pub part PlugBed(
     af = 14.0mm,
     wall = 3.0mm,
     clear = 0.35mm,
-    barb = 0.6mm,
+    barb = 0.45mm,
     barb_h = 1.2mm,
     surface_t = 2.4mm,
 ) {

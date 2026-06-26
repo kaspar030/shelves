@@ -36,7 +36,7 @@ pub const HEX_MARGIN = 6.0mm;  // solid border kept around each perforated face
 // Plug interface (lib/connector.µcad). A plug is a hex prism sized to the hole
 // minus clearance, with a snap barb that catches the back face of the surface.
 pub const PLUG_CLEAR = 0.35mm;       // gap between plug and hole wall (slip fit)
-pub const PLUG_BARB  = 0.6mm;        // how far the barb juts past the hole edge
+pub const PLUG_BARB  = 0.45mm;        // how far the barb juts past the hole edge
 pub const PLUG_BARB_H = 1.2mm;       // barb height (along insertion axis)
 pub const PLUG_LEADIN = 0.8mm;       // chamfer lead-in at the plug tip
 

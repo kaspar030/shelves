@@ -4,6 +4,7 @@
 
 pub const BOARD_W = 51mm;
 pub const BOARD_D = 21mm;
+pub const BOARD_T = 1.6mm;
 pub const HOLE_DX = 47mm;
 pub const HOLE_DY = 11.4mm;
 pub const SCREW_D = 2.0mm;    // M2 self-tap

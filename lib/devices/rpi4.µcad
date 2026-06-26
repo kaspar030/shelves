@@ -4,6 +4,7 @@
 
 pub const BOARD_W = 85mm;
 pub const BOARD_D = 56mm;
+pub const BOARD_T = 1.6mm;
 pub const HOLE_DX = 58mm;     // hole-centre spacing in X
 pub const HOLE_DY = 49mm;     // hole-centre spacing in Y
 pub const SCREW_D = 2.6mm;    // M2.5 self-tapping pilot

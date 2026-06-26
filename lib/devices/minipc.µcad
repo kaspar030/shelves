@@ -5,6 +5,7 @@
 
 pub const BOARD_W = 115mm;
 pub const BOARD_D = 110mm;
+pub const BOARD_T = 1.6mm;
 pub const HOLE_DX = 90mm;
 pub const HOLE_DY = 90mm;
 pub const SCREW_D = 3.4mm;    // M3 clearance

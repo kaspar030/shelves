@@ -1,39 +1,52 @@
 # Build manifest for the cluster-shelf pipeline.
 #
-# Each [[shelf]] entry generates one printable STL.
+# Each [[shelf]] entry generates one printable STL: build/<name>.stl
 #
-#   device   : a profile under lib/devices/  (rpi4 | rpi_zero | pico | minipc)
-#   kind     : "tray"  (open-top, bolt the board in)  |  "drawer" (with finger pull)
-#   name     : output base name -> build/<name>.stl
-#   height   : (optional) override the device's recommended tray height, e.g. "30mm"
-#   vents    : (optional) true/false floor ventilation, default true
+# kind:
+#   "tray"        – open-top hex-grid box (perforated floor + walls).
+#   "drawer"      – tray with a front finger pull.
+#   "bolt_holder" – press-in holder that bolts a board onto standoffs.
+#   "clip_holder" – press-in holder that snaps a board under corner clips.
 #
-# Add as many entries as you have devices in the cluster; the column simply
-# stacks because every tray shares the same footprint + peg/socket interlock.
+# Trays/drawers are device-agnostic boxes (boards clip into the floor via a
+# holder). `device` is OPTIONAL for trays — it only sets a default height.
+# Holders REQUIRE a `device` (rpi4 | rpi_zero | pico | nucleo | nrf52840dk |
+# minipc).
+#
+# Optional per-entry overrides: height, width, depth (e.g. height = "30mm").
+#
+# A column is built by stacking trays (they share the 120x90 footprint and the
+# corner peg/socket interlock); boards clip into each tray's hex floor; cables
+# run up the back-wall notch and are dressed with wall-mounted cable holders.
 
+# --- trays (the stackable boxes) -------------------------------------------
 [[shelf]]
-device = "rpi4"
 kind   = "tray"
-name   = "rpi4_tray"
+name   = "tray_std"
+height = "30mm"          # roomy box that fits Nucleo / nRF52840-DK + holder
 
 [[shelf]]
-device = "rpi4"
 kind   = "drawer"
-name   = "rpi4_drawer"
+name   = "drawer_std"
 height = "30mm"
 
 [[shelf]]
-device = "rpi_zero"
 kind   = "tray"
-name   = "zero_tray"
+name   = "tray_low"
+height = "18mm"          # shallow box for the Pico + small MCU boards
+
+# --- board holders (clip into a tray floor) --------------------------------
+[[shelf]]
+kind   = "bolt_holder"
+device = "nucleo"
+name   = "holder_nucleo"
 
 [[shelf]]
+kind   = "bolt_holder"
+device = "nrf52840dk"
+name   = "holder_nrf52840dk"
+
+[[shelf]]
+kind   = "clip_holder"
 device = "pico"
-kind   = "tray"
-name   = "pico_tray"
-vents  = false
-
-[[shelf]]
-device = "minipc"
-kind   = "drawer"
-name   = "minipc_drawer"
+name   = "holder_pico"
