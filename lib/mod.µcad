@@ -1,0 +1,20 @@
+// Copyright © 2026
+// SPDX-License-Identifier: MIT
+//
+// Cluster-shelf component library.
+//
+// Usage from a build file (one directory up):
+//   mod lib;
+//   use lib::*;
+//   Tray(height = 25mm, hole_dx = 58mm, hole_dy = 49mm);
+
+pub mod params;
+pub mod stack;
+pub mod mount;
+pub mod tray;
+pub mod devices;
+
+// Convenience re-exports so callers can `use lib::*;`
+pub use params::*;
+pub use tray::Tray;
+pub use tray::Drawer;

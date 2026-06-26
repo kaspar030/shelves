@@ -1,0 +1,14 @@
+// Device profiles for the cluster-shelf system.
+//
+// Each profile exposes the same set of constants:
+//   BOARD_W, BOARD_D     – board outline
+//   HOLE_DX, HOLE_DY     – rectangular mount-hole centre spacing
+//   SCREW_D, POST_D      – pilot-hole and standoff diameters
+//   STANDOFF_H, TRAY_H   – standoff height and recommended tray height
+//
+// SPDX-License-Identifier: MIT
+
+pub mod rpi4;
+pub mod rpi_zero;
+pub mod pico;
+pub mod minipc;

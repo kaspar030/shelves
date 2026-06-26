@@ -1,0 +1,11 @@
+no_std = false
+default_extension = "µcad"
+search_paths = [".", "/home/kaspar/.config/microcad/lib"]
+
+[export]
+sketch = "svg"
+part = "stl"
+
+[format]
+
+[diagnostics]

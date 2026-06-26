@@ -1,0 +1,39 @@
+# Build manifest for the cluster-shelf pipeline.
+#
+# Each [[shelf]] entry generates one printable STL.
+#
+#   device   : a profile under lib/devices/  (rpi4 | rpi_zero | pico | minipc)
+#   kind     : "tray"  (open-top, bolt the board in)  |  "drawer" (with finger pull)
+#   name     : output base name -> build/<name>.stl
+#   height   : (optional) override the device's recommended tray height, e.g. "30mm"
+#   vents    : (optional) true/false floor ventilation, default true
+#
+# Add as many entries as you have devices in the cluster; the column simply
+# stacks because every tray shares the same footprint + peg/socket interlock.
+
+[[shelf]]
+device = "rpi4"
+kind   = "tray"
+name   = "rpi4_tray"
+
+[[shelf]]
+device = "rpi4"
+kind   = "drawer"
+name   = "rpi4_drawer"
+height = "30mm"
+
+[[shelf]]
+device = "rpi_zero"
+kind   = "tray"
+name   = "zero_tray"
+
+[[shelf]]
+device = "pico"
+kind   = "tray"
+name   = "pico_tray"
+vents  = false
+
+[[shelf]]
+device = "minipc"
+kind   = "drawer"
+name   = "minipc_drawer"

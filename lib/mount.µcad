@@ -1,0 +1,57 @@
+// Copyright © 2026
+// SPDX-License-Identifier: MIT
+//
+// Board mounting: standoffs (posts) with screw pilot holes, placed on a
+// rectangular hole pattern. Most SBCs / mini-PCs / MCU devboards use a
+// rectangular 4-hole pattern, defined by the spacing between hole centres
+// in X and Y. Coordinates are centred on the footprint, matching the rest
+// of the library.
+
+use std::geo3d::*;
+use std::ops::*;
+
+// Standoff posts: solid cylinders with a pilot hole bored down the axis.
+// They sit on the floor (z = floor_z) and rise by `height`.
+//
+//   hole_dx / hole_dy : centre-to-centre spacing of the rectangular pattern
+//   post_d            : outer diameter of the standoff
+//   screw_d           : pilot-hole diameter (self-tapping screw)
+//   height            : standoff height above the floor
+//   floor_z           : top surface of the tray floor
+pub part Standoffs(
+    hole_dx: Length,
+    hole_dy: Length,
+    post_d: Length,
+    screw_d: Length,
+    height: Length,
+    floor_z: Length,
+) {
+    xs = [-hole_dx / 2, hole_dx / 2];
+    ys = [-hole_dy / 2, hole_dy / 2];
+
+    // Post minus pilot hole. Pilot stops short of the bottom by 0.6mm so the
+    // screw bites into solid plastic (blind hole).
+    (Cylinder(diameter = post_d, height = height)
+        .translate(z = floor_z + height / 2)
+    - Cylinder(diameter = screw_d, height = height)
+        .translate(z = floor_z + height / 2 + 0.6mm)
+    ).translate(x = xs, y = ys);
+}
+
+// A flat board-keying frame: a thin raised lip the size of the board, used
+// to stop the board sliding. Subtract the board outline from a thin slab.
+pub part BoardCorners(
+    board_w: Length,
+    board_d: Length,
+    lip_h: Length,
+    lip_t: Length,
+    floor_z: Length,
+) {
+    // Four short L-less corner bumps approximated as small posts just outside
+    // each board corner.
+    bx = board_w / 2 + lip_t / 2;
+    by = board_d / 2 + lip_t / 2;
+    Cube(size_x = lip_t, size_y = lip_t, size_z = lip_h)
+        .translate(z = floor_z + lip_h / 2)
+        .translate(x = [-bx, bx], y = [-by, by]);
+}

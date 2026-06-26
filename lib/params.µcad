@@ -1,0 +1,43 @@
+// Copyright © 2026
+// SPDX-License-Identifier: MIT
+//
+// Shared parameters & design constants for the cluster-shelf system.
+//
+// All trays in this system share a common *footprint grid* and a common
+// *stacking interlock* so that any tray can stack on any other tray
+// regardless of which device it was generated for.
+
+// ---------------------------------------------------------------------------
+// Global footprint
+// ---------------------------------------------------------------------------
+// Every tray has the same outer width & depth so the stack is a clean column.
+// Sized to comfortably fit a Raspberry Pi class board plus wiring margin.
+// Override per-build if you want a wider family.
+pub const FOOTPRINT_W = 120mm;
+pub const FOOTPRINT_D = 90mm;
+
+// Wall / floor thicknesses (FDM-friendly: multiples of a 0.4mm nozzle line).
+pub const WALL = 2.4mm;
+pub const FLOOR = 2.0mm;
+
+// General fit clearance between mating printed parts.
+pub const CLEARANCE = 0.3mm;
+
+// ---------------------------------------------------------------------------
+// Stacking interlock
+// ---------------------------------------------------------------------------
+// Each tray has 4 corner pegs pointing UP and 4 matching sockets pointing
+// DOWN. Peg of tray N drops into the socket of tray N+1.
+pub const PEG_D = 6.0mm; // peg diameter
+pub const PEG_H = 5.0mm; // how far the peg protrudes above the rim
+pub const PEG_INSET = 9.0mm; // peg centre inset from the outer wall
+
+// Socket = peg diameter + clearance (slip fit).
+pub const SOCKET_D = PEG_D + 2.0 * CLEARANCE;
+pub const SOCKET_DEPTH = PEG_H + 0.4mm;
+
+// ---------------------------------------------------------------------------
+// Ventilation
+// ---------------------------------------------------------------------------
+pub const VENT_SLOT_W = 4.0mm;
+pub const VENT_SLOT_GAP = 6.0mm;

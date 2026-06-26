@@ -1,0 +1,11 @@
+# Build artifacts
+/build/
+/gen/
+
+# microcad standard library auto-installs, no local artifacts expected
+*.stl
+!docs/**/*.stl
+
+# Python
+__pycache__/
+*.pyc

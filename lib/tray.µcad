@@ -1,0 +1,152 @@
+// Copyright © 2026
+// SPDX-License-Identifier: MIT
+//
+// The core parametric trays for the cluster shelf system.
+//
+// `Tray`  : an open-top tray that a board bolts into, with stacking pegs on
+//           top and sockets underneath, plus floor ventilation slots.
+// `Drawer`: a Tray with full side walls and a finger pull (for enclosed bays).
+//
+// Coordinate convention (shared library-wide):
+//   * X,Y centred on the footprint.
+//   * Z=0 is the bottom face of the tray; it grows upward in +Z.
+
+use std::geo3d::*;
+use std::ops::*;
+
+use super::params::*;
+use super::stack::*;
+use super::mount::*;
+
+// ---------------------------------------------------------------------------
+// Tray
+// ---------------------------------------------------------------------------
+pub part Tray( // outer footprint (defaults must be literals; see lib/params.µcad)
+
+    width = 120mm,
+    // = params::FOOTPRINT_W
+    depth = 90mm,
+    // = params::FOOTPRINT_D
+    height: Length,
+    // total wall height above the floor
+    // construction
+    wall = 2.4mm,
+    // = params::WALL
+    floor = 2.0mm,
+    // = params::FLOOR
+    // board mount (rectangular hole pattern)
+    hole_dx: Length,
+    hole_dy: Length,
+    post_d = 6.0mm,
+    screw_d = 2.6mm,
+    // M2.5 self-tap
+    standoff_h = 4.0mm,
+    // ventilation
+    vents = true,
+) {
+    // The body: a closed box, floor at z=0..floor, walls up to `height`,
+    // with the interior cavity removed (open top).
+    inner_w = width - 2 * wall;
+    inner_d = depth - 2 * wall;
+
+    // Sanity: the mount-hole pattern (+ standoff body) must fit inside the
+    // interior, or the standoffs would collide with / pierce the walls.
+    std::debug::assert(
+        hole_dx + post_d <= inner_w,
+        "hole_dx ({hole_dx}) + post_d ({post_d}) exceeds inner width ({inner_w}); widen the footprint",
+    );
+    std::debug::assert(
+        hole_dy + post_d <= inner_d,
+        "hole_dy ({hole_dy}) + post_d ({post_d}) exceeds inner depth ({inner_d}); widen the footprint",
+    );
+
+    body = Cube(size_x = width, size_y = depth, size_z = height)
+        .translate(z = height / 2)
+    - Cube(size_x = inner_w, size_y = inner_d, size_z = height)
+        .translate(z = floor + height / 2);
+
+    // Stacking sockets bored into the underside.
+    socketed = body - Sockets(
+        footprint_w = width,
+        footprint_d = depth,
+        inset = PEG_INSET,
+        d = SOCKET_D,
+        depth = SOCKET_DEPTH,
+    );
+
+    // Optional floor ventilation: a row of slots through the floor.
+    n_slots = 5;
+    span = inner_w - 2 * VENT_SLOT_GAP;
+    slot_xs = ([0..n_slots - 1] - (n_slots - 1) / 2) * (VENT_SLOT_W + VENT_SLOT_GAP);
+
+    vented = if vents {
+        socketed - Cube(
+            size_x = VENT_SLOT_W,
+            size_y = inner_d - 2 * VENT_SLOT_GAP,
+            size_z = floor + 2mm,
+        ).translate(z = floor / 2).translate(x = slot_xs)
+    } else {
+        socketed
+    };
+
+    // Assemble: vented body + standoffs + stacking pegs.
+    vented;
+
+    Standoffs(
+        hole_dx = hole_dx,
+        hole_dy = hole_dy,
+        post_d = post_d,
+        screw_d = screw_d,
+        height = standoff_h,
+        floor_z = floor,
+    );
+
+    Pegs(
+        footprint_w = width,
+        footprint_d = depth,
+        inset = PEG_INSET,
+        d = PEG_D,
+        h = PEG_H,
+        rim_z = height,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Drawer : a tray with a front finger-pull notch in the front wall.
+// ---------------------------------------------------------------------------
+pub part Drawer(
+    width = 120mm,
+    // = params::FOOTPRINT_W
+    depth = 90mm,
+    // = params::FOOTPRINT_D
+    height: Length,
+    wall = 2.4mm,
+    // = params::WALL
+    floor = 2.0mm,
+    // = params::FLOOR
+    hole_dx: Length,
+    hole_dy: Length,
+    post_d = 6.0mm,
+    screw_d = 2.6mm,
+    standoff_h = 4.0mm,
+    vents = true,
+    pull_w = 30mm,
+    pull_h = 8mm,
+) {
+    Tray(
+        width = width,
+        depth = depth,
+        height = height,
+        wall = wall,
+        floor = floor,
+        hole_dx = hole_dx,
+        hole_dy = hole_dy,
+        post_d = post_d,
+        screw_d = screw_d,
+        standoff_h = standoff_h,
+        vents = vents,
+    )
+    // Cut a finger pull into the front (+Y) wall.
+    - Cube(size_x = pull_w, size_y = wall * 3, size_z = pull_h)
+        .translate(y = depth / 2, z = height - pull_h / 2);
+}
