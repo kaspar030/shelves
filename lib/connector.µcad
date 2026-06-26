@@ -49,13 +49,13 @@ pub part Plug(
     // Retention barb: a hex flange that tapers from full size (top = retention
     // shoulder) down to the shaft size (bottom = lead-in). Its bottom sits
     // 0.4mm ABOVE the shaft tip so the shaft pokes through as a lead-in. The
-    // barb is rotated 30° so its hex edges do NOT coincide with the shaft's
+    // barb is rotated 15° so its hex edges do NOT coincide with the shaft's
     // (coincident coaxial hex edges confuse the boolean and leave non-manifold
     // edges); offsetting the rotation yields a clean watertight union.
     taper = r_shaft / r_barb;
     Hexagon(radius = r_barb)
         .extrude(height = barb_h, scale = (x = taper, y = taper))
-        .rotate(z = 30°)
+        .rotate(z = 15°)
         .translate(z = collar - total + 0.4mm);
 }
 
@@ -66,7 +66,7 @@ pub part Plug(
 //   cells: (cell_x, cell_y + row_pitch/2).
 pub part PlugPair(
     af = 14.0mm,
-    wall = 3.0mm,
+    wall = 2.4mm,
     clear = 0.35mm,
     barb = 0.45mm,
     barb_h = 1.2mm,
@@ -82,7 +82,7 @@ pub part PlugPair(
 pub part PlugColumn(
     n = 2,
     af = 14.0mm,
-    wall = 3.0mm,
+    wall = 2.4mm,
     clear = 0.35mm,
     barb = 0.45mm,
     barb_h = 1.2mm,
@@ -102,7 +102,7 @@ pub part PlugBed(
     cols = 2,
     rows = 2,
     af = 14.0mm,
-    wall = 3.0mm,
+    wall = 2.4mm,
     clear = 0.35mm,
     barb = 0.45mm,
     barb_h = 1.2mm,

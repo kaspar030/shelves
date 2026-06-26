@@ -30,8 +30,8 @@ pub const CLEARANCE = 0.3mm;
 // mounting grid: accessories clip in with matching hex plugs. Changing these
 // re-flows the whole system (grid + every plug) consistently.
 pub const HEX_AF   = 14.0mm;   // hex hole across-flats size
-pub const HEX_WALL = 3.0mm;    // wall thickness between holes
-pub const HEX_MARGIN = 6.0mm;  // solid border kept around each perforated face
+pub const HEX_WALL = 2.4mm;    // web between holes (thin = airier; also sets plug pitch)
+pub const HEX_MARGIN = 4.0mm;  // solid border kept around each perforated face
 
 // Plug interface (lib/connector.µcad). A plug is a hex prism sized to the hole
 // minus clearance, with a snap barb that catches the back face of the surface.

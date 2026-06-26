@@ -3,13 +3,13 @@
 # Each [[shelf]] entry generates one printable STL: build/<name>.stl
 #
 # kind:
-#   "tray"        – open-top hex-grid box (perforated floor + walls).
-#   "drawer"      – tray with a front finger pull.
+#   "tray"        – the stackable open-top hex-grid box (perforated floor + walls).
 #   "bolt_holder" – press-in holder that bolts a board onto standoffs.
 #   "clip_holder" – press-in holder that snaps a board under corner clips.
+#   "cable_comb" / "cable_hook" – wall-mounted cable management.
 #
-# Trays/drawers are device-agnostic boxes (boards clip into the floor via a
-# holder). `device` is OPTIONAL for trays — it only sets a default height.
+# Trays are device-agnostic boxes (boards clip into the floor via a holder).
+# `device` is OPTIONAL for trays — it only sets a default height.
 # Holders REQUIRE a `device` (rpi4 | rpi_zero | pico | nucleo | nrf52840dk |
 # minipc).
 #
@@ -19,16 +19,11 @@
 # corner peg/socket interlock); boards clip into each tray's hex floor; cables
 # run up the back-wall notch and are dressed with wall-mounted cable holders.
 
-# --- trays (the stackable boxes) -------------------------------------------
+# --- trays (the one stackable box, in a couple of heights) ------------------
 [[shelf]]
 kind   = "tray"
 name   = "tray_std"
 height = "30mm"          # roomy box that fits Nucleo / nRF52840-DK + holder
-
-[[shelf]]
-kind   = "drawer"
-name   = "drawer_std"
-height = "30mm"
 
 [[shelf]]
 kind   = "tray"

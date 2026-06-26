@@ -15,7 +15,9 @@ The whole system is built around **one universal honeycomb hex grid**:
 * Every accessory mounts the same way: a **hex plug** that pushes into a grid
   cell and snaps. Holders, combs and hooks are just different fronts on that
   one connector.
-* Trays still **stack** via 4 corner pegs (up) into 4 corner sockets (down).
+* Trays **stack** via 4 solid corner posts: each carries a peg on top and a
+  socket in its base, so a tray drops onto the one below and self-aligns. The
+  posts are solid, so the pegs always stand on material (no floating bits).
 
 ```
         cable trunk runs up the back-wall notches
@@ -39,7 +41,7 @@ The whole system is built around **one universal honeycomb hex grid**:
 | `lib/connector.µcad` | The **hex plug** + plug groups (`PlugPair`, `PlugBed`, …). |
 | `lib/holders.µcad` | `BoltHolder` / `ClipHolder` — board holders that clip to the floor. |
 | `lib/cables.µcad` | `CableComb` / `CableHook` — cable management that clips to walls. |
-| `lib/tray.µcad` | `Tray` / `Drawer` — the hex-grid boxes. |
+| `lib/tray.µcad` | `Tray` — the stackable hex-grid box. |
 | `lib/devices/` | One profile per board (size, hole pattern, heights). |
 | `shelves.toml` | Build manifest — declares which STLs to produce. |
 | `scripts/build.py` | Pipeline: manifest → generated µcad → exported STL. |
@@ -68,7 +70,7 @@ Each `[[shelf]]` block becomes `build/<name>.stl`:
 ```toml
 # A stackable hex-grid box (device-agnostic — boards clip into the floor).
 [[shelf]]
-kind   = "tray"             # "tray" | "drawer"
+kind   = "tray"             # the one stackable box
 name   = "tray_std"
 height = "30mm"
 
@@ -85,14 +87,16 @@ name   = "cable_comb_4"
 teeth  = 4
 ```
 
-Trays/drawers take optional `height` / `width` / `depth`. Holders read their
+Trays take optional `height` / `width` / `depth`. Holders read their
 geometry from the device profile. Combs take `teeth`; hooks take `opening`.
 
 ## How the hex grid works (the core idea)
 
 * **Honeycomb**: flats top/bottom, across-flats `HEX_AF = 14mm`, web
-  `HEX_WALL = 3mm` between holes. Nearest-neighbour hole centres are exactly
-  `HEX_AF + HEX_WALL = 17mm` apart → a uniform 3mm wall everywhere.
+  `HEX_WALL = 2.4mm` between holes. Nearest-neighbour hole centres are exactly
+  `HEX_AF + HEX_WALL = 16.4mm` apart → a uniform 2.4mm wall everywhere. (The web
+  width also sets the plug pitch, so it is one shared constant — change it once
+  and the grid *and* every accessory's plugs stay aligned.)
 * **Cell coordinate system** (`lib/hexgrid`): `cell_x(col)` / `cell_y(col,row)`
   give the exact centre of any hole. Both `HexField` (the perforation) and the
   plug groups use these same functions, so **a holder's plugs land exactly in

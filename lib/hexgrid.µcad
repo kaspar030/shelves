@@ -43,23 +43,37 @@ pub fn cell_x(col: Integer, cols: Integer, af: Length, wall: Length) {
 
 // Centre Y of (col,row) in a `rows`-tall field centred on the origin.
 // Odd columns are staggered up by half a row. (No modulo operator in µcad, so
-// parity is computed as col - 2*floor(col/2).)
+// parity is computed as col - 2*floor(col/2).) The whole field is shifted down
+// by rp/4 so its CONTENT is vertically centred on the origin (the even/odd
+// stagger would otherwise bias it upward, causing a lopsided border).
 pub fn cell_y(col: Integer, row: Integer, rows: Integer, af: Length, wall: Length) {
     rp = row_pitch(af = af, wall = wall);
-    base = (row - (rows - 1) / 2) * rp;
+    base = (row - (rows - 1) / 2) * rp - rp / 4;
     parity = col - 2 * std::math::int(col / 2);
     base + parity * (rp / 2)
 }
 
-// How many columns/rows of cells fit in a span, leaving `margin` solid border.
-// Always returns at least 1 (a single centred cell still fits if span allows).
+// How many columns/rows of WHOLE hexes fit in a span, leaving a clean border.
+// The kept border accounts for each hex's true half-extent so no hex is ever
+// clipped by the panel edge:
+//   * horizontal half-extent = circumradius r = af/SQRT3 (points face L/R)
+//   * vertical   half-extent = af/2               (flats face up/down)
+// `margin` is the EXTRA solid border beyond that minimum.
 pub fn fit_cols(span: Length, margin: Length, af: Length, wall: Length) {
-    n = std::math::int((span - 2 * margin - af) / col_pitch(af = af, wall = wall)) + 1;
+    r = af / SQRT3;
+    usable = span - 2 * margin - 2 * r;
+    n = std::math::int(usable / col_pitch(af = af, wall = wall)) + 1;
     if n < 1 { 1 } else { n }
 }
 
+// Rows of WHOLE hexes that fit in a span. The field's content height (with the
+// even/odd stagger) is rows*rp + af - rp/2, centred via the rp/4 shift, so the
+// usable span is span - 2*margin and each added row costs rp.
 pub fn fit_rows(span: Length, margin: Length, af: Length, wall: Length) {
-    n = std::math::int((span - 2 * margin - af) / row_pitch(af = af, wall = wall)) + 1;
+    rp = row_pitch(af = af, wall = wall);
+    // content_height(rows) = rows*rp + af - rp/2  <=  span - 2*margin
+    usable = span - 2 * margin - af + rp / 2;
+    n = std::math::int(usable / rp);
     if n < 1 { 1 } else { n }
 }
 
@@ -83,7 +97,10 @@ pub sketch HexField(
     even_x = (([0 .. n_even - 1] * 2) - (cols - 1) / 2) * cp;
     odd_x  = ((([0 .. n_odd - 1] * 2) + 1) - (cols - 1) / 2) * cp;
 
-    base_y = ([0 .. rows - 1] - (rows - 1) / 2) * rp;
+    // Even columns sit on base_y; odd columns are staggered up by rp/2. The
+    // whole field is shifted down by rp/4 so its content is centred on origin
+    // (matches cell_y, keeping accessory plug alignment exact).
+    base_y = ([0 .. rows - 1] - (rows - 1) / 2) * rp - rp / 4;
 
     Hexagon(radius = r).translate(x = even_x, y = base_y);
     Hexagon(radius = r).translate(x = odd_x, y = base_y + rp / 2);

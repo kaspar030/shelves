@@ -47,7 +47,7 @@ pub part CableComb(
     depth = 8mm,           // how far the comb stands off the wall (+Y)
     base_t = 2.4mm,
     af = 14.0mm,
-    wall = 3.0mm,
+    wall = 2.4mm,
     surface_t = 2.4mm,
 ) {
     pitch = slot_w + tooth_w;
@@ -76,7 +76,7 @@ pub part CableHook(
     bar = 3mm,             // material thickness of the hook
     base_t = 2.4mm,
     af = 14.0mm,
-    wall = 3.0mm,
+    wall = 2.4mm,
     surface_t = 2.4mm,
 ) {
     CableBase(plate_w = af, base_t = base_t, af = af, wall = wall, surface_t = surface_t);

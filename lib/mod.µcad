@@ -10,7 +10,6 @@
 //   BoltHolder(board_w = 70mm, board_d = 82mm, hole_dx = 60mm, hole_dy = 72mm);
 
 pub mod params;
-pub mod stack;
 pub mod hexgrid;
 pub mod connector;
 pub mod holders;
@@ -21,4 +20,3 @@ pub mod devices;
 // Convenience re-exports so callers can `use lib::*;`
 pub use params::*;
 pub use tray::Tray;
-pub use tray::Drawer;

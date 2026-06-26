@@ -32,7 +32,6 @@ VALID_DEVICES = {
 # kind -> (workbench, needs_device)
 VALID_KINDS = {
     "tray":        ("Tray",        False),
-    "drawer":      ("Drawer",      False),
     "bolt_holder": ("BoltHolder",  True),
     "clip_holder": ("ClipHolder",  True),
     "cable_comb":  ("CableComb",   False),
@@ -54,7 +53,7 @@ def render(shelf: dict) -> str:
     if device and device not in VALID_DEVICES:
         raise ValueError(f"{name}: unknown device {device!r}")
 
-    if kind in ("tray", "drawer"):
+    if kind == "tray":
         return _render_tray(name, kind, workbench, shelf, device)
     if kind in ("cable_comb", "cable_hook"):
         return _render_cable(name, kind, workbench, shelf)
@@ -82,7 +81,7 @@ use lib::cables::*;
 
 
 def _render_tray(name, kind, workbench, shelf, device) -> str:
-    """A hex-grid tray/drawer. Device is optional (only sizes the height)."""
+    """A hex-grid tray. Device is optional (only sizes the height)."""
     # Trays are device-agnostic boxes; boards clip into the floor separately.
     if device:
         height = shelf.get("height", "dev::TRAY_H")
