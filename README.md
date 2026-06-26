@@ -1,55 +1,64 @@
-# Cluster Shelves — parametric stackable trays/drawers with µcad
+# Cluster Shelves — parametric hex-grid trays + clip-in accessories (µcad)
 
-A small CAD pipeline that turns a one-line manifest entry into a printable STL
-for a homelab cluster: **stackable trays/drawers** for Raspberry Pi, Pi Zero,
-MCU devboards (Pico), and small mini-PCs.
+A CAD pipeline that turns a one-line manifest entry into printable STLs for a
+homelab cluster of Raspberry Pi, ST Nucleo, Nordic nRF52840-DK, RP2040 Pico and
+small mini-PC boards.
 
-Every tray shares a common **footprint** and a **corner peg/socket interlock**,
-so trays in the same family stack into a clean self-aligning column. Each tray
-is parameterised for its device (mount-hole pattern, standoff height, tray
-height, footprint).
+The whole system is built around **one universal honeycomb hex grid**:
+
+* **Trays** are open-top boxes whose **floor *and* all four walls are
+  hex-perforated** — for airflow, visibility, and as a universal mounting grid.
+* **Boards** don't bolt to the tray. They clip into press-in **holders** that
+  snap into the hex **floor**.
+* **Cables** run up a **back-wall notch** that lines up through the stack, and
+  are dressed with **cable combs / hooks** that snap into the hex **walls**.
+* Every accessory mounts the same way: a **hex plug** that pushes into a grid
+  cell and snaps. Holders, combs and hooks are just different fronts on that
+  one connector.
+* Trays still **stack** via 4 corner pegs (up) into 4 corner sockets (down).
 
 ```
-   ┌───────────────┐   pegs (×4) ── drop into ──┐
-   │   rpi4_tray    │ ▲▲                        │
-   ├───────────────┤                            ▼
-   │  rpi4_drawer   │   sockets (×4) on underside
-   ├───────────────┤
-   │  zero_tray ... │
-   └───────────────┘
+        cable trunk runs up the back-wall notches
+                       │
+   ┌───────────────┐   │   ⬡⬡⬡⬡⬡  hex walls: airflow + clip-in cable combs/hooks
+   │  tray_std     ⬡⬡⬡⬡│⬡  ◄── nucleo board on a bolt-in holder, clipped to floor
+   ├───────────────┤   │
+   │  tray_std     ⬡⬡⬡⬡│⬡  ◄── nRF52840-DK on its holder
+   ├───────────────┤   │
+   │  tray_low     ⬡⬡⬡ │   ◄── pico on a clip-in holder
+   └───────────────┘   │
+     pegs↑ sockets↓      hex floor: boards clip in anywhere on the grid
 ```
 
 ## What you get
 
 | File / dir | Purpose |
 |---|---|
-| `lib/` | The reusable µcad component library (the actual CAD). |
-| `lib/devices/` | One profile per device: board size, hole pattern, heights. |
+| `lib/params.µcad` | All master constants (footprint, hex pitch, plug, pegs). |
+| `lib/hexgrid.µcad` | Honeycomb generator + the shared **cell coordinate system**. |
+| `lib/connector.µcad` | The **hex plug** + plug groups (`PlugPair`, `PlugBed`, …). |
+| `lib/holders.µcad` | `BoltHolder` / `ClipHolder` — board holders that clip to the floor. |
+| `lib/cables.µcad` | `CableComb` / `CableHook` — cable management that clips to walls. |
+| `lib/tray.µcad` | `Tray` / `Drawer` — the hex-grid boxes. |
+| `lib/devices/` | One profile per board (size, hole pattern, heights). |
 | `shelves.toml` | Build manifest — declares which STLs to produce. |
 | `scripts/build.py` | Pipeline: manifest → generated µcad → exported STL. |
-| `gen/` | Generated µcad sources (git-ignored). |
-| `build/` | Exported `.stl` files (git-ignored). |
-| `Makefile` | `make all`, `make check`, `make clean`, … |
+| `gen/`, `build/` | Generated sources / exported STLs (git-ignored). |
 
 ## Quick start
 
 ```sh
-# 1. install the µcad toolchain (needs cmake + ninja for the geometry kernel)
-cargo install microcad
-
-# 2. build every shelf in the manifest
-make all          # == python3 scripts/build.py
-
-# 3. find your STLs
-ls build/
+cargo install microcad      # needs cmake + ninja for the geometry kernel
+make all                    # generate + export everything to build/
+ls build/                   # your STLs
 ```
 
-Build just one shelf, or override the export resolution:
+Build one part, or finer mesh:
 
 ```sh
-python3 scripts/build.py rpi4_tray
-python3 scripts/build.py --resolution 0.05mm      # finer mesh
-make check                                        # type-check only
+python3 scripts/build.py holder_nucleo
+python3 scripts/build.py --resolution 0.05mm
+make check                  # type-check every generated source
 ```
 
 ## The manifest (`shelves.toml`)
@@ -57,80 +66,113 @@ make check                                        # type-check only
 Each `[[shelf]]` block becomes `build/<name>.stl`:
 
 ```toml
+# A stackable hex-grid box (device-agnostic — boards clip into the floor).
 [[shelf]]
-device = "rpi4"        # profile in lib/devices/  (rpi4|rpi_zero|pico|minipc)
-kind   = "tray"        # "tray" (open top) | "drawer" (adds a finger pull)
-name   = "rpi4_tray"   # output base name
-# optional overrides:
-# height = "30mm"
-# width  = "120mm"     # footprint — keep equal across a stack!
-# depth  = "90mm"
-# vents  = false       # floor ventilation slots (default true)
+kind   = "tray"             # "tray" | "drawer"
+name   = "tray_std"
+height = "30mm"
+
+# A board holder that clips into a tray floor.
+[[shelf]]
+kind   = "bolt_holder"      # "bolt_holder" (screws) | "clip_holder" (snap tabs)
+device = "nucleo"           # rpi4|rpi_zero|pico|nucleo|nrf52840dk|minipc
+name   = "holder_nucleo"
+
+# A cable accessory that clips into a hex wall.
+[[shelf]]
+kind   = "cable_comb"       # "cable_comb" (teeth=N) | "cable_hook" (opening=…)
+name   = "cable_comb_4"
+teeth  = 4
 ```
 
-## Design model
+Trays/drawers take optional `height` / `width` / `depth`. Holders read their
+geometry from the device profile. Combs take `teeth`; hooks take `opening`.
 
-* **Footprint.** All trays meant to stack together must share `width`/`depth`.
-  By default a shelf inherits its device profile's footprint
-  (`FOOTPRINT_W`/`FOOTPRINT_D`). The Pi-class devices all use `120 × 90 mm`;
-  the mini-PC profile uses a larger one (so it forms its *own* column).
-* **Interlock.** `lib/stack.µcad` adds 4 corner **pegs** on the rim (pointing
-  up) and 4 corner **sockets** on the underside (slip-fit, `peg Ø + clearance`).
-  Tray N's pegs drop into tray N+1's sockets.
-* **Mounting.** `lib/mount.µcad` places 4 **standoffs** on the device's
-  rectangular hole pattern, each with a blind pilot hole for a self-tapping
-  screw. The board sits `standoff_h` above the floor for airflow.
-* **Coordinate convention** (library-wide): X/Y centred on the footprint;
-  **Z = 0 is the tray's bottom face**, growing upward — so models sit on the
-  print bed with no manual repositioning.
-* **Safety check.** `Tray` asserts the hole pattern (+ standoff body) fits
-  inside the interior; if a board is too big for the footprint you get a clear
-  error instead of a broken mesh.
+## How the hex grid works (the core idea)
+
+* **Honeycomb**: flats top/bottom, across-flats `HEX_AF = 14mm`, web
+  `HEX_WALL = 3mm` between holes. Nearest-neighbour hole centres are exactly
+  `HEX_AF + HEX_WALL = 17mm` apart → a uniform 3mm wall everywhere.
+* **Cell coordinate system** (`lib/hexgrid`): `cell_x(col)` / `cell_y(col,row)`
+  give the exact centre of any hole. Both `HexField` (the perforation) and the
+  plug groups use these same functions, so **a holder's plugs land exactly in
+  the holes** — alignment is correct by construction.
+* **The plug** (`lib/connector`): a hex prism sized `HEX_AF − PLUG_CLEAR`, with
+  a tapered snap **barb** that catches the back face of the surface. The barb is
+  rotated 30° vs the shaft so the union stays watertight, and sized so adjacent
+  plugs (one row-pitch apart) don't collide.
+* **Anti-rotation**: a single plug can spin, so accessories use **two or more**
+  plugs (`PlugPair` = two stacked cells; `PlugBed` = a cols×rows block).
+
+## Board mounting
+
+| Holder | Use for | How |
+|---|---|---|
+| `BoltHolder` | Nucleo, nRF52840-DK, Pi-class | board screws onto standoffs over its mount-hole pattern |
+| `ClipHolder` | Pico, small MCU boards | board snaps under 4 printed corner clips — no screws |
+
+Both ride on a `PlugBed` sized to the board, so they clip anywhere on a tray
+floor and lift the board for airflow / underside-component clearance.
+
+## Where the cables go
+
+* The **back (−Y) wall** of every tray has a **cable-trunk notch**. Stacked
+  trays line their notches up into a vertical channel; the main bundle runs up
+  the back of the column.
+* Branch cables are dressed along any wall with **`CableComb`** (several cables
+  side-by-side, press-fit slots) or **`CableHook`** (a J-hook for a loop /
+  bundle). Both clip into two vertically-adjacent wall cells.
+* The hex perforation itself lets you zip-tie or route a cable through any cell.
 
 ## Adding a device
 
 Create `lib/devices/<name>.µcad` with these public constants…
 
 ```µcad
-pub const BOARD_W = 85mm;   pub const BOARD_D = 56mm;
-pub const HOLE_DX = 58mm;   pub const HOLE_DY = 49mm;   // hole-centre spacing
-pub const SCREW_D = 2.6mm;  pub const POST_D = 6mm;
-pub const STANDOFF_H = 4mm; pub const TRAY_H = 26mm;
+pub const BOARD_W = 70mm;   pub const BOARD_D = 82.5mm;  pub const BOARD_T = 1.6mm;
+pub const HOLE_DX = 60mm;   pub const HOLE_DY = 72mm;    // mount-hole spacing
+pub const SCREW_D = 3.2mm;  pub const POST_D = 6mm;
+pub const STANDOFF_H = 5mm; pub const TRAY_H = 30mm;
 pub const FOOTPRINT_W = 120mm; pub const FOOTPRINT_D = 90mm;
 ```
 
-…register it in `lib/devices/mod.µcad` (`pub mod <name>;`), add it to
-`VALID_DEVICES` in `scripts/build.py`, then reference it from `shelves.toml`.
+…register it in `lib/devices/mod.µcad` and add it to `VALID_DEVICES` in
+`scripts/build.py`. The supplied Nucleo / nRF52840-DK / mini-PC hole spacings
+are practical approximations — **measure your exact board and adjust**.
 
-## µcad notes / gotchas (learned the hard way)
+## µcad 0.5 notes / gotchas (learned the hard way)
 
-These are properties of µcad 0.5 worth knowing before editing `lib/`:
+Properties of µcad 0.5 worth knowing before editing `lib/`:
 
-* **Modules resolve by directory.** `mod foo;` looks for `foo.µcad` or
-  `foo/mod.µcad` *next to the current file*. A file can't reach `../lib`.
-  This pipeline instead adds the repo root to `search_paths` in
-  `.microcad.toml`, so generated files can `use lib::tray::*` from anywhere.
-* **Default parameter values must be literals.** Default expressions are
-  evaluated in the *caller's* scope, so `height = SOME_CONST` fails when called
-  from another module. The library uses literal defaults (with a comment naming
-  the canonical constant in `lib/params.µcad`).
-* **Function calls use named arguments**: `peg_xs(footprint_w = w, inset = i)`.
-  µcad `fn`s have no return-type annotation; the last expression is the result.
-* **Array → multiplicity.** Passing an array to a transform makes N copies:
-  `Cube(..).translate(x = [0mm, 10mm, 20mm])`. Two arrays (`x=[..], y=[..]`)
-  produce the **Cartesian product** — handy for 4 corner features.
-* **Primitives are centred on all axes.** `Cube`/`Cylinder` are centred at the
-  origin; translate by `size/2` to sit them on a surface.
-* `#[export("path.stl")]` on a top-level node lets one source emit several STLs.
+* **Modules resolve by directory** (`mod foo;` ⇒ `foo.µcad` / `foo/mod.µcad`
+  next to the file). This repo puts `.` on `search_paths` in `.microcad.toml`
+  so generated files can `use lib::…` from anywhere.
+* **Default parameter values must be literals** — default expressions evaluate
+  in the *caller's* scope, so `x = SOME_CONST` fails cross-module. Library
+  defaults are literals (with a comment naming the constant in `params.µcad`).
+* **Functions take named arguments**; no return-type annotation (last
+  expression is the result).
+* **No modulo operator** — parity is `col - 2*int(col/2)`.
+* **Integer ranges**: `[0 .. n-1]`; arrays multiply geometry (multiplicity),
+  and two arrays (`x=[..], y=[..]`) give the Cartesian product.
+* **`std::math::int` floors toward −∞** (`int(-0.1) == -1`), so clamp counts.
+* **Manifold unions**: coaxial aligned hex prisms share edges and produce
+  non-manifold geometry — offset one by 30°. Touching-but-not-overlapping
+  solids leave coincident faces — overlap mating parts by a small epsilon.
+* **Extrude grows +Z from 0**; translate by `−thick/2` to centre a panel before
+  rotating it into a wall.
+* `#[export("path.stl")]` on a node emits one STL; the path is relative to the
+  source file's directory.
 
 ## Printing tips
 
-* PETG/ABS for trays that sit near warm SBCs; PLA is fine for cool MCU boards.
-* Walls/floor are multiples of a 0.4 mm line width for clean slicing.
-* Sockets are sized `peg Ø + 2 × clearance` (default 0.3 mm) for a slip fit;
-  tighten `CLEARANCE` in `lib/params.µcad` if your printer runs loose.
+* PETG/ABS for trays near warm SBCs; PLA fine for cool MCU boards.
+* Walls/floor/webs are multiples of a 0.4 mm line for clean slicing.
+* Plug fit is `HEX_AF − PLUG_CLEAR` (0.35 mm); loosen/tighten `PLUG_CLEAR` in
+  `lib/params.µcad` to match your printer. Snap barb is `PLUG_BARB` (0.45 mm).
+* All shipped STLs are verified **watertight / manifold**.
 
 ## License
 
-Code & models: MIT (see SPDX headers). The µcad standard library it builds on
-is AGPL-3.0 — that applies to the toolchain, not to the STLs you produce.
+Code & models: MIT (SPDX headers). The µcad standard library it builds on is
+AGPL-3.0 — that covers the toolchain, not the STLs you produce.

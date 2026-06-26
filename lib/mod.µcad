@@ -3,14 +3,14 @@
 //
 // Cluster-shelf component library.
 //
-// Usage from a build file (one directory up):
-//   mod lib;
-//   use lib::*;
-//   Tray(height = 25mm, hole_dx = 58mm, hole_dy = 49mm);
+// Usage from a build file (search_paths includes the repo root):
+//   use lib::tray::*;
+//   Tray(height = 30mm);
+//   use lib::holders::*;
+//   BoltHolder(board_w = 70mm, board_d = 82mm, hole_dx = 60mm, hole_dy = 72mm);
 
 pub mod params;
 pub mod stack;
-pub mod mount;
 pub mod hexgrid;
 pub mod connector;
 pub mod holders;
