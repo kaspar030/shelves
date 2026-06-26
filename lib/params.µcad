@@ -24,6 +24,23 @@ pub const FLOOR = 2.0mm;
 pub const CLEARANCE = 0.3mm;
 
 // ---------------------------------------------------------------------------
+// Hex grid (universal mounting surface)
+// ---------------------------------------------------------------------------
+// Floor AND walls are perforated with this honeycomb. The same hex cell is the
+// mounting grid: accessories clip in with matching hex plugs. Changing these
+// re-flows the whole system (grid + every plug) consistently.
+pub const HEX_AF   = 14.0mm;   // hex hole across-flats size
+pub const HEX_WALL = 3.0mm;    // wall thickness between holes
+pub const HEX_MARGIN = 6.0mm;  // solid border kept around each perforated face
+
+// Plug interface (lib/connector.µcad). A plug is a hex prism sized to the hole
+// minus clearance, with a snap barb that catches the back face of the surface.
+pub const PLUG_CLEAR = 0.35mm;       // gap between plug and hole wall (slip fit)
+pub const PLUG_BARB  = 0.6mm;        // how far the barb juts past the hole edge
+pub const PLUG_BARB_H = 1.2mm;       // barb height (along insertion axis)
+pub const PLUG_LEADIN = 0.8mm;       // chamfer lead-in at the plug tip
+
+// ---------------------------------------------------------------------------
 // Stacking interlock
 // ---------------------------------------------------------------------------
 // Each tray has 4 corner pegs pointing UP and 4 matching sockets pointing

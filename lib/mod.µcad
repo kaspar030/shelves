@@ -11,6 +11,8 @@
 pub mod params;
 pub mod stack;
 pub mod mount;
+pub mod hexgrid;
+pub mod connector;
 pub mod tray;
 pub mod devices;
 

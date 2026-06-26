@@ -1,0 +1,110 @@
+// Copyright © 2026
+// SPDX-License-Identifier: MIT
+//
+// The universal connector: a hex PLUG that pushes into a hex grid cell (floor
+// or wall) and snaps. Every accessory (board holders, cable holders) mounts by
+// carrying one or more of these on a baseplate.
+//
+// Geometry & print orientation:
+//   * A plug points in -Z, hanging below an accessory baseplate that sits at
+//     z = 0. The accessory is printed baseplate-down, so the plug prints as a
+//     vertical pillar with no overhangs except the barb's lead-in taper.
+//   * Shaft: a hex prism sized (hole_af - clearance) so it slides into a cell.
+//   * Barb: a slightly larger hex flange at the tip whose lower face is tapered
+//     (lead-in) for self-centring insertion, and whose upper face is flat to
+//     catch the BACK side of the surface once pushed through.
+//
+// A single plug can rotate in its hole. Holders therefore use `PlugPair` /
+// multi-plug baseplates spanning adjacent cells to lock rotation (see below).
+
+use std::geo2d::*;
+use std::geo3d::*;
+use std::ops::*;
+
+use super::params::*;
+use super::hexgrid::*;
+
+const SQRT3 = 1.7320508075688772;
+
+// A single snap plug, tip pointing -Z, top face flush with z = 0.
+//   surface_t : thickness of the floor/wall the plug passes through.
+pub part Plug(
+    af = 14.0mm,           // = HEX_AF (hole across-flats)
+    clear = 0.35mm,        // = PLUG_CLEAR
+    barb = 0.6mm,          // = PLUG_BARB
+    barb_h = 1.2mm,        // = PLUG_BARB_H
+    surface_t = 2.4mm,     // surface thickness to pass through
+) {
+    r_shaft = (af - clear) / SQRT3;
+    r_barb  = (af - clear + 2 * barb) / SQRT3;
+
+    // Shaft spans from z=0 down through the surface plus the barb height.
+    total = surface_t + barb_h + 0.4mm;
+    Hexagon(radius = r_shaft)
+        .extrude(height = total)
+        .translate(z = -total);
+
+    // Retention barb at the tip: a hex that tapers from full size (top, the
+    // retention shoulder) down to the shaft size (bottom, the lead-in tip).
+    taper = r_shaft / r_barb;
+    Hexagon(radius = r_barb)
+        .extrude(height = barb_h, scale = (x = taper, y = taper))
+        .translate(z = -total);
+}
+
+// Two plugs stacked vertically in the SAME column, spacing one row-pitch apart,
+// centred on the origin. Same-column => same parity => always on-grid, and two
+// points lock rotation. This is the primary, robust mounting footprint.
+//   Place the holder origin at the midpoint between two vertically-adjacent
+//   cells: (cell_x, cell_y + row_pitch/2).
+pub part PlugPair(
+    af = 14.0mm,
+    wall = 3.0mm,
+    clear = 0.35mm,
+    barb = 0.6mm,
+    barb_h = 1.2mm,
+    surface_t = 2.4mm,
+) {
+    rp = row_pitch(af = af, wall = wall);
+    Plug(af = af, clear = clear, barb = barb, barb_h = barb_h, surface_t = surface_t)
+        .translate(y = [-rp / 2, rp / 2]);
+}
+
+// `n` plugs stacked vertically in one column, centred on the origin. Use for
+// tall holders that want more grip. n >= 2 locks rotation.
+pub part PlugColumn(
+    n = 2,
+    af = 14.0mm,
+    wall = 3.0mm,
+    clear = 0.35mm,
+    barb = 0.6mm,
+    barb_h = 1.2mm,
+    surface_t = 2.4mm,
+) {
+    rp = row_pitch(af = af, wall = wall);
+    ys = ([0 .. n - 1] - (n - 1) / 2) * rp;
+    Plug(af = af, clear = clear, barb = barb, barb_h = barb_h, surface_t = surface_t)
+        .translate(y = ys);
+}
+
+// `cols` vertical plug-columns of `rows` plugs each, the columns spaced TWO
+// column-pitches apart (same parity => all land on grid cells, no stagger).
+// Centred on the origin. This is the footprint big board holders ride on.
+//   Footprint spans ~ (cols-1)*2*col_pitch wide x (rows-1)*row_pitch tall.
+pub part PlugBed(
+    cols = 2,
+    rows = 2,
+    af = 14.0mm,
+    wall = 3.0mm,
+    clear = 0.35mm,
+    barb = 0.6mm,
+    barb_h = 1.2mm,
+    surface_t = 2.4mm,
+) {
+    cp = col_pitch(af = af, wall = wall);
+    rp = row_pitch(af = af, wall = wall);
+    xs = ([0 .. cols - 1] - (cols - 1) / 2) * (2 * cp);
+    ys = ([0 .. rows - 1] - (rows - 1) / 2) * rp;
+    Plug(af = af, clear = clear, barb = barb, barb_h = barb_h, surface_t = surface_t)
+        .translate(x = xs, y = ys);
+}
