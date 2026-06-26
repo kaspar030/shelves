@@ -13,6 +13,7 @@ pub mod stack;
 pub mod mount;
 pub mod hexgrid;
 pub mod connector;
+pub mod holders;
 pub mod tray;
 pub mod devices;
 
