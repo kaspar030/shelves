@@ -50,3 +50,14 @@ name   = "holder_nrf52840dk"
 kind   = "clip_holder"
 device = "pico"
 name   = "holder_pico"
+
+# --- cable management (clip into a hex wall) --------------------------------
+[[shelf]]
+kind   = "cable_comb"
+name   = "cable_comb_4"
+teeth  = 4
+
+[[shelf]]
+kind   = "cable_hook"
+name   = "cable_hook"
+opening = "12mm"
