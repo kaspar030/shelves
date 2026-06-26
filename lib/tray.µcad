@@ -1,152 +1,156 @@
 // Copyright © 2026
 // SPDX-License-Identifier: MIT
 //
-// The core parametric trays for the cluster shelf system.
+// The core parametric tray for the cluster shelf system — now a HEX-GRID box.
 //
-// `Tray`  : an open-top tray that a board bolts into, with stacking pegs on
-//           top and sockets underneath, plus floor ventilation slots.
-// `Drawer`: a Tray with full side walls and a finger pull (for enclosed bays).
+// Floor AND all four walls are perforated with the shared honeycomb
+// (lib/hexgrid). The hex cells are the universal mounting grid: boards clip
+// into the FLOOR via holders (lib/holders), and cable holders / accessories
+// clip into any wall cell. The perforation also provides airflow + visibility.
+//
+// Cables: a notch in the back (+Y) wall lets a cable trunk run up the back of
+// the stack; individual cables are dressed with wall-mounted cable holders.
 //
 // Coordinate convention (shared library-wide):
 //   * X,Y centred on the footprint.
 //   * Z=0 is the bottom face of the tray; it grows upward in +Z.
 
+use std::geo2d::*;
 use std::geo3d::*;
 use std::ops::*;
 
 use super::params::*;
 use super::stack::*;
-use super::mount::*;
+use super::hexgrid::*;
 
-// ---------------------------------------------------------------------------
-// Tray
-// ---------------------------------------------------------------------------
-pub part Tray( // outer footprint (defaults must be literals; see lib/params.µcad)
-
-    width = 120mm,
-    // = params::FOOTPRINT_W
-    depth = 90mm,
-    // = params::FOOTPRINT_D
+// A perforated rectangular panel in the XY plane, extruded `thick` in +Z,
+// centred on the origin. `margin` keeps a solid border around the holes.
+part HexPanel(
+    width: Length,
     height: Length,
-    // total wall height above the floor
-    // construction
-    wall = 2.4mm,
-    // = params::WALL
-    floor = 2.0mm,
-    // = params::FLOOR
-    // board mount (rectangular hole pattern)
-    hole_dx: Length,
-    hole_dy: Length,
-    post_d = 6.0mm,
-    screw_d = 2.6mm,
-    // M2.5 self-tap
-    standoff_h = 4.0mm,
-    // ventilation
-    vents = true,
+    thick: Length,
+    margin: Length,
+    af: Length,
+    wall: Length,
 ) {
-    // The body: a closed box, floor at z=0..floor, walls up to `height`,
-    // with the interior cavity removed (open top).
+    cols = fit_cols(span = width, margin = margin, af = af, wall = wall);
+    rows = fit_rows(span = height, margin = margin, af = af, wall = wall);
+    // Extrude is centred on the panel plane (z = -thick/2 .. +thick/2) so that
+    // after rotation the wall thickness straddles its placement plane.
+    (Rect(width = width, height = height)
+        - HexField(cols = cols, rows = rows, af = af, wall = wall))
+        .extrude(height = thick)
+        .translate(z = -thick / 2);
+}
+
+pub part Tray(
+    // outer footprint (defaults are literals; see lib/params.µcad)
+    width = 120mm,             // = params::FOOTPRINT_W
+    depth = 90mm,              // = params::FOOTPRINT_D
+    height: Length,            // total wall height above the floor
+    // construction
+    wall = 2.4mm,              // = params::WALL  (panel thickness)
+    floor = 2.0mm,             // = params::FLOOR
+    // hex grid
+    af = 14.0mm,               // = params::HEX_AF
+    hexwall = 3.0mm,           // = params::HEX_WALL  (web between holes)
+    margin = 6.0mm,            // = params::HEX_MARGIN (solid border per face)
+    // features
+    cable_notch_w = 26mm,      // width of the back-wall cable trunk notch
+    cable_notch_h = 12mm,      // height of that notch (from the rim downward)
+) {
     inner_w = width - 2 * wall;
     inner_d = depth - 2 * wall;
 
-    // Sanity: the mount-hole pattern (+ standoff body) must fit inside the
-    // interior, or the standoffs would collide with / pierce the walls.
-    std::debug::assert(
-        hole_dx + post_d <= inner_w,
-        "hole_dx ({hole_dx}) + post_d ({post_d}) exceeds inner width ({inner_w}); widen the footprint",
+    // ---- Floor: a perforated panel sitting at z = 0 .. floor ----------------
+    floor_panel = HexPanel(
+        width = width, height = depth, thick = floor,
+        margin = margin, af = af, wall = hexwall,
+    ).translate(z = floor / 2);
+
+    // ---- Walls: four perforated panels standing on the floor ---------------
+    // Build each as an XY panel, perforate, extrude in its thickness, then
+    // rotate/translate into place. Wall panels are sized to the INNER opening
+    // height so they read as a clean band; they bridge the full footprint
+    // width/depth so the corners stay solid for pegs/sockets.
+    wall_h = height - floor;
+
+    // Front (+Y) and Back (-Y) walls span the footprint width, in the XZ plane.
+    front_back = HexPanel(
+        width = width, height = wall_h, thick = wall,
+        margin = margin, af = af, wall = hexwall,
+    ).rotate(x = 90°);            // now panel lies in XZ, thickness along +Y
+
+    // place at back (-Y) and front (+Y)
+    fb = front_back
+        .translate(z = floor + wall_h / 2)
+        .translate(y = [-(depth / 2 - wall / 2), depth / 2 - wall / 2]);
+
+    // Left (-X) and Right (+X) walls span the footprint depth, in the YZ plane.
+    left_right = HexPanel(
+        width = depth, height = wall_h, thick = wall,
+        margin = margin, af = af, wall = hexwall,
+    ).rotate(x = 90°).rotate(z = 90°);   // panel in YZ, thickness along +X
+
+    lr = left_right
+        .translate(z = floor + wall_h / 2)
+        .translate(x = [-(width / 2 - wall / 2), width / 2 - wall / 2]);
+
+    // ---- Solid corner pads for the stacking pegs/sockets -------------------
+    // The peg/socket inset can fall inside the perforated zone, so guarantee
+    // solid material under each corner. A small solid block from z=0 up through
+    // the floor, at each corner, sized to comfortably contain the socket.
+    pad_s = SOCKET_D + 6mm;
+    corner_pads = Cube(size_x = pad_s, size_y = pad_s, size_z = floor)
+        .translate(z = floor / 2)
+        .translate(
+            x = [-(width / 2 - PEG_INSET), width / 2 - PEG_INSET],
+            y = [-(depth / 2 - PEG_INSET), depth / 2 - PEG_INSET],
+        );
+
+    // ---- Assemble box, then carve stacking sockets + cable notch -----------
+    // Stacking sockets bored into the underside of the floor corners.
+    sockets = Sockets(
+        footprint_w = width, footprint_d = depth,
+        inset = PEG_INSET, d = SOCKET_D, depth = SOCKET_DEPTH,
     );
-    std::debug::assert(
-        hole_dy + post_d <= inner_d,
-        "hole_dy ({hole_dy}) + post_d ({post_d}) exceeds inner depth ({inner_d}); widen the footprint",
-    );
 
-    body = Cube(size_x = width, size_y = depth, size_z = height)
-        .translate(z = height / 2)
-    - Cube(size_x = inner_w, size_y = inner_d, size_z = height)
-        .translate(z = floor + height / 2);
+    // Cable trunk notch in the back (-Y) wall, open at the top rim.
+    notch = Cube(size_x = cable_notch_w, size_y = wall * 3, size_z = cable_notch_h)
+        .translate(y = -(depth / 2), z = height - cable_notch_h / 2);
 
-    // Stacking sockets bored into the underside.
-    socketed = body - Sockets(
-        footprint_w = width,
-        footprint_d = depth,
-        inset = PEG_INSET,
-        d = SOCKET_D,
-        depth = SOCKET_DEPTH,
-    );
+    (floor_panel | corner_pads | fb | lr) - sockets - notch;
 
-    // Optional floor ventilation: a row of slots through the floor.
-    n_slots = 5;
-    span = inner_w - 2 * VENT_SLOT_GAP;
-    slot_xs = ([0..n_slots - 1] - (n_slots - 1) / 2) * (VENT_SLOT_W + VENT_SLOT_GAP);
-
-    vented = if vents {
-        socketed - Cube(
-            size_x = VENT_SLOT_W,
-            size_y = inner_d - 2 * VENT_SLOT_GAP,
-            size_z = floor + 2mm,
-        ).translate(z = floor / 2).translate(x = slot_xs)
-    } else {
-        socketed
-    };
-
-    // Assemble: vented body + standoffs + stacking pegs.
-    vented;
-
-    Standoffs(
-        hole_dx = hole_dx,
-        hole_dy = hole_dy,
-        post_d = post_d,
-        screw_d = screw_d,
-        height = standoff_h,
-        floor_z = floor,
-    );
-
+    // ---- Stacking pegs on top of the rim -----------------------------------
     Pegs(
-        footprint_w = width,
-        footprint_d = depth,
-        inset = PEG_INSET,
-        d = PEG_D,
-        h = PEG_H,
-        rim_z = height,
+        footprint_w = width, footprint_d = depth,
+        inset = PEG_INSET, d = PEG_D, h = PEG_H, rim_z = height,
     );
 }
 
 // ---------------------------------------------------------------------------
-// Drawer : a tray with a front finger-pull notch in the front wall.
+// Drawer : a Tray with a front finger-pull notch in the front (+Y) wall.
 // ---------------------------------------------------------------------------
 pub part Drawer(
     width = 120mm,
-    // = params::FOOTPRINT_W
     depth = 90mm,
-    // = params::FOOTPRINT_D
     height: Length,
     wall = 2.4mm,
-    // = params::WALL
     floor = 2.0mm,
-    // = params::FLOOR
-    hole_dx: Length,
-    hole_dy: Length,
-    post_d = 6.0mm,
-    screw_d = 2.6mm,
-    standoff_h = 4.0mm,
-    vents = true,
+    af = 14.0mm,
+    hexwall = 3.0mm,
+    margin = 6.0mm,
+    cable_notch_w = 26mm,
+    cable_notch_h = 12mm,
     pull_w = 30mm,
     pull_h = 8mm,
 ) {
     Tray(
-        width = width,
-        depth = depth,
-        height = height,
-        wall = wall,
-        floor = floor,
-        hole_dx = hole_dx,
-        hole_dy = hole_dy,
-        post_d = post_d,
-        screw_d = screw_d,
-        standoff_h = standoff_h,
-        vents = vents,
+        width = width, depth = depth, height = height,
+        wall = wall, floor = floor,
+        af = af, hexwall = hexwall, margin = margin,
+        cable_notch_w = cable_notch_w, cable_notch_h = cable_notch_h,
     )
-    // Cut a finger pull into the front (+Y) wall.
     - Cube(size_x = pull_w, size_y = wall * 3, size_z = pull_h)
         .translate(y = depth / 2, z = height - pull_h / 2);
 }

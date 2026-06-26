@@ -52,12 +52,15 @@ pub fn cell_y(col: Integer, row: Integer, rows: Integer, af: Length, wall: Lengt
 }
 
 // How many columns/rows of cells fit in a span, leaving `margin` solid border.
+// Always returns at least 1 (a single centred cell still fits if span allows).
 pub fn fit_cols(span: Length, margin: Length, af: Length, wall: Length) {
-    std::math::int((span - 2 * margin - af) / col_pitch(af = af, wall = wall)) + 1
+    n = std::math::int((span - 2 * margin - af) / col_pitch(af = af, wall = wall)) + 1;
+    if n < 1 { 1 } else { n }
 }
 
 pub fn fit_rows(span: Length, margin: Length, af: Length, wall: Length) {
-    std::math::int((span - 2 * margin - af) / row_pitch(af = af, wall = wall)) + 1
+    n = std::math::int((span - 2 * margin - af) / row_pitch(af = af, wall = wall)) + 1;
+    if n < 1 { 1 } else { n }
 }
 
 // A 2D honeycomb of `cols x rows` hexes centred on the origin, on the shared
