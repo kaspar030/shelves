@@ -4,8 +4,8 @@
 // The cluster-shelf tray: a single, stackable, hex-grid box.
 //
 // Floor AND all four walls are perforated with the shared honeycomb
-// (lib/hexgrid) for airflow + visibility, and as the universal mounting grid:
-// boards clip into the FLOOR via holders (lib/holders), and cable holders /
+// (shelves/hexgrid) for airflow + visibility, and as the universal mounting grid:
+// boards clip into the FLOOR via holders (shelves/holders), and cable holders /
 // accessories clip into any wall cell.
 //
 // Stacking: 4 solid corner posts run the full height. Each post carries a PEG
@@ -48,7 +48,7 @@ part HexPanel(
 }
 
 pub part Tray(
-    // outer footprint (defaults are literals; see lib/params.µcad)
+    // outer footprint (defaults are literals; see shelves/params.mu)
     width = 120mm,             // = params::FOOTPRINT_W
     depth = 90mm,              // = params::FOOTPRINT_D
     height = 30mm,             // total wall height above the floor

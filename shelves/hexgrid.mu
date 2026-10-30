@@ -15,12 +15,20 @@
 //   * The whole `cols x rows` field is centred on the origin, so a holder that
 //     uses the same cell_x/cell_y lands its plugs exactly in the holes.
 //
-// Master parameters (lib/params.µcad): HEX_AF, HEX_WALL.
+// Master parameters (shelves/params.mu): HEX_AF, HEX_WALL.
 
 use std::geo2d::*;
 use std::ops::*;
 
 const SQRT3 = 1.7320508075688772;
+
+// A regular hexagon with circumradius `radius`, points left/right, flats on
+// top & bottom. Built as the intersection of three rotated strips because
+// µcad 0.6 cannot render the built-in `Ngon` (and thus `std::geo2d::Hexagon`).
+pub sketch Hex(radius: Length) {
+    strip = Rect(width = 4 * radius, height = radius * SQRT3);
+    strip & strip.rotate(60°) & strip.rotate(120°);
+}
 
 pub fn hex_radius(af: Length) {
     af / SQRT3
@@ -37,8 +45,11 @@ pub fn row_pitch(af: Length, wall: Length) {
 }
 
 // Centre X of column `col` in a `cols`-wide field centred on the origin.
+//
+// NOTE: µcad 0.6 functions can only call builtins, not other user functions,
+// so the col_pitch/row_pitch formulas are inlined in the helpers below.
 pub fn cell_x(col: Integer, cols: Integer, af: Length, wall: Length) {
-    (col - (cols - 1) / 2) * col_pitch(af = af, wall = wall)
+    (col - (cols - 1) / 2) * (0.75 * (2 * (af / SQRT3)) + (wall * (SQRT3 / 2)))
 }
 
 // Centre Y of (col,row) in a `rows`-tall field centred on the origin.
@@ -47,7 +58,7 @@ pub fn cell_x(col: Integer, cols: Integer, af: Length, wall: Length) {
 // by rp/4 so its CONTENT is vertically centred on the origin (the even/odd
 // stagger would otherwise bias it upward, causing a lopsided border).
 pub fn cell_y(col: Integer, row: Integer, rows: Integer, af: Length, wall: Length) {
-    rp = row_pitch(af = af, wall = wall);
+    rp = af + wall;   // row_pitch
     base = (row - (rows - 1) / 2) * rp - rp / 4;
     parity = col - 2 * std::math::int(col / 2);
     base + parity * (rp / 2)
@@ -62,7 +73,8 @@ pub fn cell_y(col: Integer, row: Integer, rows: Integer, af: Length, wall: Lengt
 pub fn fit_cols(span: Length, margin: Length, af: Length, wall: Length) {
     r = af / SQRT3;
     usable = span - 2 * margin - 2 * r;
-    n = std::math::int(usable / col_pitch(af = af, wall = wall)) + 1;
+    cp = (0.75 * (2 * (af / SQRT3)) + (wall * (SQRT3 / 2)));   // col_pitch
+    n = std::math::int(usable / cp) + 1;
     if n < 1 { 1 } else { n }
 }
 
@@ -70,7 +82,7 @@ pub fn fit_cols(span: Length, margin: Length, af: Length, wall: Length) {
 // even/odd stagger) is rows*rp + af - rp/2, centred via the rp/4 shift, so the
 // usable span is span - 2*margin and each added row costs rp.
 pub fn fit_rows(span: Length, margin: Length, af: Length, wall: Length) {
-    rp = row_pitch(af = af, wall = wall);
+    rp = af + wall;   // row_pitch
     // content_height(rows) = rows*rp + af - rp/2  <=  span - 2*margin
     usable = span - 2 * margin - af + rp / 2;
     n = std::math::int(usable / rp);
@@ -102,8 +114,8 @@ pub sketch HexField(
     // (matches cell_y, keeping accessory plug alignment exact).
     base_y = ([0 .. rows - 1] - (rows - 1) / 2) * rp - rp / 4;
 
-    Hexagon(radius = r).translate(x = even_x, y = base_y);
-    Hexagon(radius = r).translate(x = odd_x, y = base_y + rp / 2);
+    Hex(radius = r).translate(x = even_x, y = base_y);
+    Hex(radius = r).translate(x = odd_x, y = base_y + rp / 2);
 }
 
 // Convenience: choose a cols x rows field that fills width x height (minus

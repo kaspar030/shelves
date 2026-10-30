@@ -33,7 +33,7 @@ pub const HEX_AF   = 14.0mm;   // hex hole across-flats size
 pub const HEX_WALL = 2.4mm;    // web between holes (thin = airier; also sets plug pitch)
 pub const HEX_MARGIN = 4.0mm;  // solid border kept around each perforated face
 
-// Plug interface (lib/connector.µcad). A plug is a hex prism sized to the hole
+// Plug interface (shelves/connector.mu). A plug is a hex prism sized to the hole
 // minus clearance, with a snap barb that catches the back face of the surface.
 pub const PLUG_CLEAR = 0.35mm;       // gap between plug and hole wall (slip fit)
 pub const PLUG_BARB  = 0.45mm;        // how far the barb juts past the hole edge
@@ -49,9 +49,12 @@ pub const PEG_D = 6.0mm; // peg diameter
 pub const PEG_H = 5.0mm; // how far the peg protrudes above the rim
 pub const PEG_INSET = 9.0mm; // peg centre inset from the outer wall
 
-// Socket = peg diameter + clearance (slip fit).
-pub const SOCKET_D = PEG_D + 2.0 * CLEARANCE;
-pub const SOCKET_DEPTH = PEG_H + 0.4mm;
+// Socket = peg diameter + clearance (slip fit). µcad 0.6 consts must be
+// literals, so keep these in sync by hand:
+//   SOCKET_D     = PEG_D + 2 * CLEARANCE
+//   SOCKET_DEPTH = PEG_H + 0.4mm
+pub const SOCKET_D = 6.6mm;
+pub const SOCKET_DEPTH = 5.4mm;
 
 // ---------------------------------------------------------------------------
 // Ventilation

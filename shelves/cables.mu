@@ -6,7 +6,7 @@
 // board holders, so they go into any two vertically-adjacent hex cells.
 //
 // WHERE THE CABLES GO (the system answer):
-//   * Each tray's BACK (-Y) wall has a cable-trunk NOTCH (see lib/tray) — the
+//   * Each tray's BACK (-Y) wall has a cable-trunk NOTCH (see shelves/tray) — the
 //     main bundle runs vertically up the back of the stack through the aligned
 //     notches.
 //   * Individual cables branch off the trunk and are dressed along the walls

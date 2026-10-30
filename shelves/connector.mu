@@ -42,7 +42,7 @@ pub part Plug(
     // baseplate with no coincident face) down through the surface + barb.
     collar = 0.6mm;
     total = collar + surface_t + barb_h + 0.4mm;
-    Hexagon(radius = r_shaft)
+    Hex(radius = r_shaft)
         .extrude(height = total)
         .translate(z = collar - total);
 
@@ -53,7 +53,7 @@ pub part Plug(
     // (coincident coaxial hex edges confuse the boolean and leave non-manifold
     // edges); offsetting the rotation yields a clean watertight union.
     taper = r_shaft / r_barb;
-    Hexagon(radius = r_barb)
+    Hex(radius = r_barb)
         .extrude(height = barb_h, scale = (x = taper, y = taper))
         .rotate(z = 15°)
         .translate(z = collar - total + 0.4mm);
