@@ -36,21 +36,22 @@ The whole system is built around **one universal honeycomb hex grid**:
 
 | File / dir | Purpose |
 |---|---|
-| `lib/params.µcad` | All master constants (footprint, hex pitch, plug, pegs). |
-| `lib/hexgrid.µcad` | Honeycomb generator + the shared **cell coordinate system**. |
-| `lib/connector.µcad` | The **hex plug** + plug groups (`PlugPair`, `PlugBed`, …). |
-| `lib/holders.µcad` | `BoltHolder` / `ClipHolder` — board holders that clip to the floor. |
-| `lib/cables.µcad` | `CableComb` / `CableHook` — cable management that clips to walls. |
-| `lib/tray.µcad` | `Tray` — the stackable hex-grid box. |
-| `lib/devices/` | One profile per board (size, hole pattern, heights). |
+| `shelves.mu` | Library root (declares the modules in `shelves/`). |
+| `shelves/params.mu` | All master constants (footprint, hex pitch, plug, pegs). |
+| `shelves/hexgrid.mu` | Honeycomb generator + the shared **cell coordinate system**. |
+| `shelves/connector.mu` | The **hex plug** + plug groups (`PlugPair`, `PlugBed`, …). |
+| `shelves/holders.mu` | `BoltHolder` / `ClipHolder` — board holders that clip to the floor. |
+| `shelves/cables.mu` | `CableComb` / `CableHook` — cable management that clips to walls. |
+| `shelves/tray.mu` | `Tray` — the stackable hex-grid box. |
+| `shelves/devices/` | One profile per board (size, hole pattern, heights). |
 | `shelves.toml` | Build manifest — declares which STLs to produce. |
 | `scripts/build.py` | Pipeline: manifest → generated µcad → exported STL. |
-| `gen/`, `build/` | Generated sources / exported STLs (git-ignored). |
+| `lib.mu`, `build/` | Generated root source / exported STLs (git-ignored). |
 
 ## Quick start
 
 ```sh
-cargo install microcad      # needs cmake + ninja for the geometry kernel
+cargo install mucad@0.6.0   # needs cmake + ninja for the geometry kernel
 make all                    # generate + export everything to build/
 ls build/                   # your STLs
 ```
@@ -60,12 +61,13 @@ Build one part, or finer mesh:
 ```sh
 python3 scripts/build.py holder_nucleo
 python3 scripts/build.py --resolution 0.05mm
-make check                  # type-check every generated source
+make check                  # type-check the generated root + library
 ```
 
 ## The manifest (`shelves.toml`)
 
-Each `[[shelf]]` block becomes `build/<name>.stl`:
+Each `[[shelf]]` block becomes `build/<name>.stl` (`name` must be a lowercase
+identifier — it becomes a µcad statement name in the generated `lib.mu`):
 
 ```toml
 # A stackable hex-grid box (device-agnostic — boards clip into the floor).
@@ -97,11 +99,11 @@ geometry from the device profile. Combs take `teeth`; hooks take `opening`.
   `HEX_AF + HEX_WALL = 16.4mm` apart → a uniform 2.4mm wall everywhere. (The web
   width also sets the plug pitch, so it is one shared constant — change it once
   and the grid *and* every accessory's plugs stay aligned.)
-* **Cell coordinate system** (`lib/hexgrid`): `cell_x(col)` / `cell_y(col,row)`
+* **Cell coordinate system** (`shelves/hexgrid`): `cell_x(col)` / `cell_y(col,row)`
   give the exact centre of any hole. Both `HexField` (the perforation) and the
   plug groups use these same functions, so **a holder's plugs land exactly in
   the holes** — alignment is correct by construction.
-* **The plug** (`lib/connector`): a hex prism sized `HEX_AF − PLUG_CLEAR`, with
+* **The plug** (`shelves/connector`): a hex prism sized `HEX_AF − PLUG_CLEAR`, with
   a tapered snap **barb** that catches the back face of the surface. The barb is
   rotated 30° vs the shaft so the union stays watertight, and sized so adjacent
   plugs (one row-pitch apart) don't collide.
@@ -130,7 +132,7 @@ floor and lift the board for airflow / underside-component clearance.
 
 ## Adding a device
 
-Create `lib/devices/<name>.µcad` with these public constants…
+Create `shelves/devices/<name>.mu` with these public constants…
 
 ```µcad
 pub const BOARD_W = 70mm;   pub const BOARD_D = 82.5mm;  pub const BOARD_T = 1.6mm;
@@ -140,17 +142,29 @@ pub const STANDOFF_H = 5mm; pub const TRAY_H = 30mm;
 pub const FOOTPRINT_W = 120mm; pub const FOOTPRINT_D = 90mm;
 ```
 
-…register it in `lib/devices/mod.µcad` and add it to `VALID_DEVICES` in
+…register it in `shelves/devices.mu` and add it to `VALID_DEVICES` in
 `scripts/build.py`. The supplied Nucleo / nRF52840-DK / mini-PC hole spacings
 are practical approximations — **measure your exact board and adjust**.
 
-## µcad 0.5 notes / gotchas (learned the hard way)
+## µcad 0.6 notes / gotchas (learned the hard way)
 
-Properties of µcad 0.5 worth knowing before editing `lib/`:
+Properties of µcad 0.6 worth knowing before editing `shelves/`:
 
-* **Modules resolve by directory** (`mod foo;` ⇒ `foo.µcad` / `foo/mod.µcad`
-  next to the file). This repo puts `.` on `search_paths` in `.microcad.toml`
-  so generated files can `use lib::…` from anywhere.
+* **The CLI is `mucad`**, sources use the `.mu` extension, and `lib` is a
+  reserved keyword (hence the library is called `shelves`).
+* **Modules resolve relative to the file**: in `foo.mu`, `mod bar;` loads
+  `foo/bar.mu`; in a file named `lib.mu` it loads `bar.mu` next to it. A
+  directory module needs `bar.mu` + `bar/` — sub-modules of a `bar/mod.mu`
+  are looked up in `bar/mod/` and don't resolve. Config `search_paths` only
+  locate `std`, so the generated root `lib.mu` must live next to `shelves.mu`.
+* **Functions can only call builtins**, not other user `fn`s (they fail with
+  "cannot be called"). Parts/sketches can call `fn`s. Hence the pitch
+  formulas are inlined in `hexgrid.mu` / `holders.mu`.
+* **`const`s must be literal** — `const B = A + 1mm` is rejected, so derived
+  constants (`SOCKET_D`, `SOCKET_DEPTH`) are spelled out with a comment.
+* **`Ngon` / `std::geo2d::Hexagon` don't render** ("Built-in `Ngon` cannot be
+  rendered"); `shelves::hexgrid::Hex` builds the hexagon from three rotated
+  `Rect` strips instead.
 * **Default parameter values must be literals** — default expressions evaluate
   in the *caller's* scope, so `x = SOME_CONST` fails cross-module. Library
   defaults are literals (with a comment naming the constant in `params.µcad`).
@@ -165,18 +179,19 @@ Properties of µcad 0.5 worth knowing before editing `lib/`:
   solids leave coincident faces — overlap mating parts by a small epsilon.
 * **Extrude grows +Z from 0**; translate by `−thick/2` to centre a panel before
   rotating it into a wall.
-* `#[export("path.stl")]` on a node emits one STL; the path is relative to the
-  source file's directory.
+* `#[export("path.stl")]` on a named statement (`name = Part(..);`) emits one
+  STL; the path is relative to the source file's directory. One `mucad export`
+  writes all of them.
 
 ## Printing tips
 
 * PETG/ABS for trays near warm SBCs; PLA fine for cool MCU boards.
 * Walls/floor/webs are multiples of a 0.4 mm line for clean slicing.
 * Plug fit is `HEX_AF − PLUG_CLEAR` (0.35 mm); loosen/tighten `PLUG_CLEAR` in
-  `lib/params.µcad` to match your printer. Snap barb is `PLUG_BARB` (0.45 mm).
+  `shelves/params.mu` to match your printer. Snap barb is `PLUG_BARB` (0.45 mm).
 * All shipped STLs are verified **watertight / manifold**.
 
 ## License
 
-Code & models: MIT (SPDX headers). The µcad standard library it builds on is
-AGPL-3.0 — that covers the toolchain, not the STLs you produce.
+Code & models: MIT (SPDX headers). The µcad toolchain is AGPL-3.0 (its
+standard library is MIT) — that covers the toolchain, not the STLs you produce.

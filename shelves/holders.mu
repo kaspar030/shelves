@@ -22,14 +22,18 @@ use super::connector::*;
 
 // Pick a plug bed (cols x rows) big enough to underlie a board of given size,
 // and the baseplate size to match. Helpers so holders stay declarative.
+// (col_pitch / row_pitch are inlined: µcad 0.6 functions can't call user fns.)
+const SQRT3 = 1.7320508075688772;
+
 fn bed_cols(board_w: Length, af: Length, wall: Length) {
     // at least 2 columns to lock rotation; one extra column per ~2*col_pitch.
-    c = std::math::int(board_w / (2 * col_pitch(af = af, wall = wall)));
+    cp = 0.75 * (2 * (af / SQRT3)) + (wall * (SQRT3 / 2));
+    c = std::math::int(board_w / (2 * cp));
     if c < 2 { 2 } else { c }
 }
 
 fn bed_rows(board_d: Length, af: Length, wall: Length) {
-    r = std::math::int(board_d / row_pitch(af = af, wall = wall));
+    r = std::math::int(board_d / (af + wall));
     if r < 2 { 2 } else { r }
 }
 

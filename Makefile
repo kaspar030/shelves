@@ -1,7 +1,6 @@
-# Cluster-shelf pipeline.
+# Cluster-shelf pipeline (µcad 0.6).
 
-MICROCAD ?= microcad
-CONFIG    = .microcad.toml
+MUCAD    ?= mucad
 BUILD_PY  = python3 scripts/build.py
 
 .PHONY: all gen clean check fmt list help
@@ -13,19 +12,17 @@ help:           ## Show this help
 all:            ## Generate + export every shelf in shelves.toml
 	$(BUILD_PY)
 
-gen:            ## Only (re)generate gen/*.µcad from the manifest
+gen:            ## Only (re)generate lib.mu from the manifest
 	$(BUILD_PY) --gen-only
 
-check: gen      ## Type-check every generated source
-	@set -e; for f in gen/*.µcad; do \
-	  echo "check $$f"; $(MICROCAD) -C $(CONFIG) check "$$f"; \
-	done
+check: gen      ## Type-check the generated root (and the whole library)
+	$(MUCAD) check lib.mu
 
 fmt:            ## Format the library sources
-	@for f in lib/*.µcad lib/devices/*.µcad; do $(MICROCAD) format "$$f" || true; done
+	@for f in shelves.mu shelves/*.mu shelves/devices/*.mu; do $(MUCAD) format "$$f" || true; done
 
 list:           ## List exported STLs
 	@ls -la build/*.stl 2>/dev/null || echo "nothing built yet — run 'make all'"
 
-clean:          ## Remove generated sources and exported STLs
-	rm -rf gen build
+clean:          ## Remove the generated root and exported STLs
+	rm -rf lib.mu build

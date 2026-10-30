@@ -1,8 +1,8 @@
 # Build artifacts
 /build/
-/gen/
+/lib.mu
 
-# microcad standard library auto-installs, no local artifacts expected
+# the µcad standard library auto-installs, no local artifacts expected
 *.stl
 !docs/**/*.stl
 
