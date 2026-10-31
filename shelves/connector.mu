@@ -5,17 +5,12 @@
 // or wall) and snaps. Every accessory (board holders, cable holders) mounts by
 // carrying one or more of these on a baseplate.
 //
-// Geometry & print orientation:
-//   * A plug points in -Z, hanging below an accessory baseplate that sits at
-//     z = 0. The accessory is printed baseplate-down, so the plug prints as a
-//     vertical pillar with no overhangs except the barb's lead-in taper.
-//   * Shaft: a hex prism sized (hole_af - clearance) so it slides into a cell.
-//   * Barb: a slightly larger hex flange at the tip whose lower face is tapered
-//     (lead-in) for self-centring insertion, and whose upper face is flat to
-//     catch the BACK side of the surface once pushed through.
-//
-// A single plug can rotate in its hole. Holders therefore use `PlugPair` /
-// multi-plug baseplates spanning adjacent cells to lock rotation (see below).
+// Geometry:
+//   * A plug points in -Z below an accessory body that sits at z = 0.
+//   * Shaft: a slotted hex tube sized (hole_af - clearance) so it slides into a
+//     cell; being hexagonal it cannot rotate in the hex hole.
+//   * Barb: a slightly larger hex flange near the tip, tapered toward the tip
+//     (lead-in) and flat on top to catch the BACK side of the surface.
 
 use std::geo2d::*;
 use std::geo3d::*;
@@ -26,37 +21,56 @@ use super::hexgrid::*;
 
 const SQRT3 = 1.7320508075688772;
 
-// A single snap plug, tip pointing -Z, top face flush with z = 0.
+// A single snap plug, tip pointing -Z. z = 0 is the TOP face of the surface
+// the plug passes through (the accessory body sits on it at z >= 0).
 //   surface_t : thickness of the floor/wall the plug passes through.
+//
+// The shaft is a hex TUBE split by two crossing slots into four fingers, so
+// the barb can flex inward while it passes the hole and snap out behind it.
+// The barb is widest at its top (flat retention face, just below the surface)
+// and tapers to just under shaft size at the tip (lead-in).
+//
+// Print orientation: the accessory body flat on the bed, plug pointing UP. The
+// only overhang is the barb's retention face (`barb`, < 0.5mm).
 pub part Plug(
     af = 14.0mm,           // = HEX_AF (hole across-flats)
     clear = 0.35mm,        // = PLUG_CLEAR
-    barb = 0.45mm,         // = PLUG_BARB
+    barb = 0.35mm,         // = PLUG_BARB
     barb_h = 1.2mm,        // = PLUG_BARB_H
-    surface_t = 2.4mm,     // surface thickness to pass through
+    surface_t = 2.0mm,     // surface thickness to pass through
+    tube = 1.6mm,          // finger (tube wall) thickness
+    slot = 1.6mm,          // width of the two finger slots
 ) {
-    r_shaft = (af - clear) / SQRT3;
-    r_barb  = (af - clear + 2 * barb) / SQRT3;
+    af_shaft = af - clear;
+    r_shaft = af_shaft / SQRT3;
+    r_bore  = (af_shaft - 2 * tube) / SQRT3;
+    r_barb  = (af_shaft + 2 * barb) / SQRT3;
 
-    // Shaft spans from a small collar ABOVE z=0 (so it fuses into a holder
-    // baseplate with no coincident face) down through the surface + barb.
-    collar = 0.6mm;
-    total = collar + surface_t + barb_h + 0.4mm;
-    Hex(radius = r_shaft)
-        .extrude(height = total)
-        .translate(z = collar - total);
+    // The tip IS the barb: a hex frustum from just under shaft size at the tip
+    // (lead-in) up to barb size at its flat top (retention face, with a small
+    // play below the surface). The straight shaft runs from 0.5mm inside the
+    // body down to 0.2mm inside the barb, so no faces or edges coincide.
+    barb_top = -surface_t - 0.15mm;
+    tip = barb_top - barb_h - 0.6mm;
+    r_tip = r_shaft - 0.3mm;
+    taper = r_barb / r_tip;
+    barb_part = Hex(radius = r_tip)
+        .extrude(height = barb_top - tip, scale = (x = taper, y = taper))
+        .translate(z = tip);
+    shaft_bottom = barb_top - 0.2mm;
+    shaft = Hex(radius = r_shaft)
+        .extrude(height = 0.5mm - shaft_bottom)
+        .translate(z = shaft_bottom);
 
-    // Retention barb: a hex flange that tapers from full size (top = retention
-    // shoulder) down to the shaft size (bottom = lead-in). Its bottom sits
-    // 0.4mm ABOVE the shaft tip so the shaft pokes through as a lead-in. The
-    // barb is rotated 15° so its hex edges do NOT coincide with the shaft's
-    // (coincident coaxial hex edges confuse the boolean and leave non-manifold
-    // edges); offsetting the rotation yields a clean watertight union.
-    taper = r_shaft / r_barb;
-    Hex(radius = r_barb)
-        .extrude(height = barb_h, scale = (x = taper, y = taper))
-        .rotate(z = 15°)
-        .translate(z = collar - total + 0.4mm);
+    // Fingers: everything below z = -0.3mm is split by two crossing slots.
+    finger_len = -0.3mm - tip;
+    slots = Cube(size_x = af * 2, size_y = slot, size_z = finger_len + 1mm)
+        .translate(z = tip - 1mm + (finger_len + 1mm) / 2)
+        .rotate([0°, 90°]);
+
+    (shaft | barb_part)
+        - Hex(radius = r_bore).extrude(height = 2mm - tip).translate(z = tip - 1mm)
+        - slots;
 }
 
 // Two plugs stacked vertically in the SAME column, spacing one row-pitch apart,
@@ -70,7 +84,7 @@ pub part PlugPair(
     clear = 0.35mm,
     barb = 0.45mm,
     barb_h = 1.2mm,
-    surface_t = 2.4mm,
+    surface_t = 2.0mm,
 ) {
     rp = row_pitch(af = af, wall = wall);
     Plug(af = af, clear = clear, barb = barb, barb_h = barb_h, surface_t = surface_t)
@@ -86,7 +100,7 @@ pub part PlugColumn(
     clear = 0.35mm,
     barb = 0.45mm,
     barb_h = 1.2mm,
-    surface_t = 2.4mm,
+    surface_t = 2.0mm,
 ) {
     rp = row_pitch(af = af, wall = wall);
     ys = ([0 .. n - 1] - (n - 1) / 2) * rp;
@@ -106,7 +120,7 @@ pub part PlugBed(
     clear = 0.35mm,
     barb = 0.45mm,
     barb_h = 1.2mm,
-    surface_t = 2.4mm,
+    surface_t = 2.0mm,
 ) {
     cp = col_pitch(af = af, wall = wall);
     rp = row_pitch(af = af, wall = wall);

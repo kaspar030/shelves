@@ -2,16 +2,12 @@
 // SPDX-License-Identifier: MIT
 //
 // Cable-management accessories that clip into the hex grid (typically a WALL,
-// but the floor works too). All ride on the same PlugPair interface as the
-// board holders, so they go into any two vertically-adjacent hex cells.
+// but the floor works too). Both ride on a PlugPair, so they go into any two
+// vertically-adjacent hex cells.
 //
-// WHERE THE CABLES GO (the system answer):
-//   * Each tray's BACK (-Y) wall has a cable-trunk NOTCH (see shelves/tray) — the
-//     main bundle runs vertically up the back of the stack through the aligned
-//     notches.
-//   * Individual cables branch off the trunk and are dressed along the walls
-//     with `CableComb` (several cables side by side) or `CableHook` (a loop /
-//     bundle). Both clip into the hex wall wherever you want them.
+// WHERE THE CABLES GO: out through the wall hexes (large enough for RJ45 and
+// USB plugs), dressed along the walls with `CableComb` (several cables side by
+// side) or `CableHook` (a loop / bundle).
 //
 // Print orientation: baseplate flat on the bed (z = 0 .. base_t), plugs hang
 // below (−Z) to push into the wall; the comb/hook faces +Y (away from wall).
@@ -48,7 +44,7 @@ pub part CableComb(
     base_t = 2.4mm,
     af = 14.0mm,
     wall = 2.4mm,
-    surface_t = 2.4mm,
+    surface_t = 2.0mm,
 ) {
     pitch = slot_w + tooth_w;
     comb_w = teeth * pitch + tooth_w;
@@ -77,7 +73,7 @@ pub part CableHook(
     base_t = 2.4mm,
     af = 14.0mm,
     wall = 2.4mm,
-    surface_t = 2.4mm,
+    surface_t = 2.0mm,
 ) {
     CableBase(plate_w = af, base_t = base_t, af = af, wall = wall, surface_t = surface_t);
 

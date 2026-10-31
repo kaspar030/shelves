@@ -1,168 +1,58 @@
 // Copyright © 2026
 // SPDX-License-Identifier: MIT
 //
-// Press-in board holders. A holder is a baseplate that clips into the hex grid
-// (floor or wall) via a `PlugBed`, and carries the board above it. Two styles:
+// Board holders: four separate CORNER POSTS per board instead of a baseplate.
+// Each post plugs into one hex cell of a tray floor and carries one board
+// mounting hole on top; the board is screwed down with self-tapping screws.
 //
-//   BoltHolder : board screwed onto standoffs (secure; for boards with clean
-//                mount holes, e.g. ST Nucleo, nRF52840-DK).
-//   ClipHolder : board snapped under printed corner clips (no hardware; for
-//                small boards, e.g. Raspberry Pi Pico).
+//   * The post body is a prism: the 2D hull of a hex shoulder (centred on the
+//     plug, a bit larger than the hole, so it rests on the floor web) and a
+//     round pad at the board hole, offset (vx, vy) from the plug centre.
+//   * Because a board hole rarely sits exactly over a cell centre, the offset
+//     is chosen per board by scripts/build.py, which also tells you which
+//     cells to use. Posts at diagonally opposite corners are the same part
+//     rotated 180°, and the hex plug fits the cell in every 60° rotation.
 //
-// Coordinate convention: baseplate sits at z = 0 .. base_t; plugs hang below
-// into the grid; standoffs / clips rise above to hold the board.
+// Coordinate convention: z = 0 is the top face of the tray floor; the body
+// rises to z = lift (the underside of the board), the plug hangs below.
+//
+// Print orientation: upside down — the flat top (pad) on the bed, plug
+// pointing up. No overhangs except the plug's small barb face.
 
 use std::geo2d::*;
 use std::geo3d::*;
 use std::ops::*;
 
-use super::params::*;
 use super::hexgrid::*;
 use super::connector::*;
 
-// Pick a plug bed (cols x rows) big enough to underlie a board of given size,
-// and the baseplate size to match. Helpers so holders stay declarative.
-// (col_pitch / row_pitch are inlined: µcad 0.6 functions can't call user fns.)
 const SQRT3 = 1.7320508075688772;
 
-fn bed_cols(board_w: Length, af: Length, wall: Length) {
-    // at least 2 columns to lock rotation; one extra column per ~2*col_pitch.
-    cp = 0.75 * (2 * (af / SQRT3)) + (wall * (SQRT3 / 2));
-    c = std::math::int(board_w / (2 * cp));
-    if c < 2 { 2 } else { c }
+// (An `if` in a part body yields a model, so value choices live in fns.)
+fn min_len(a: Length, b: Length) {
+    if a < b { a } else { b }
 }
 
-fn bed_rows(board_d: Length, af: Length, wall: Length) {
-    r = std::math::int(board_d / (af + wall));
-    if r < 2 { 2 } else { r }
-}
-
-// The shared base: a rectangular plate with a PlugBed clipped underneath.
-pub part HolderBase(
-    plate_w: Length,
-    plate_d: Length,
-    base_t = 2.4mm,
-    af = 14.0mm,
-    wall = 2.4mm,
-    surface_t = 2.4mm,   // thickness of the grid surface this clips into
-    cols = 2,
-    rows = 2,
+pub part CornerPost(
+    vx: Length,           // board-hole offset from the plug centre (X)
+    vy: Length,           // board-hole offset from the plug centre (Y)
+    lift: Length,         // floor top -> board underside
+    post_d = 6.0mm,       // pad diameter under the board hole
+    screw_d = 2.5mm,      // self-tapping pilot hole
+    screw_depth = 6.0mm,  // pilot hole depth (capped by the post height)
+    shoulder = 1.5mm,     // how far the shoulder overlaps the hole rim
+    af = 14.0mm,          // = HEX_AF
+    surface_t = 2.0mm,    // = FLOOR
 ) {
-    Cube(size_x = plate_w, size_y = plate_d, size_z = base_t)
-        .translate(z = base_t / 2);
-    PlugBed(cols = cols, rows = rows, af = af, wall = wall, surface_t = surface_t);
-}
+    r_shoulder = (af + 2 * shoulder) / SQRT3;
+    depth = min_len(a = screw_depth, b = lift - 1mm);
 
-// One bolt standoff: a post with a blind pilot hole, sitting on the baseplate.
-// The post sinks `OVERLAP` into the plate so the union fuses (no coincident
-// faces / non-manifold edges).
-part BoltPost(post_d: Length, screw_d: Length, height: Length, base_t: Length) {
-    h = height + 0.6mm;       // extra reaches down into the plate to fuse
-    Cylinder(diameter = post_d, height = h)
-        .translate(z = base_t - 0.6mm + h / 2)
-  - Cylinder(diameter = screw_d, height = height)
-        .translate(z = base_t + height / 2 + 0.6mm);
-}
+    {
+        Hex(radius = r_shoulder);
+        Circle(radius = post_d / 2, center = (x = vx, y = vy));
+    }.hull().extrude(height = lift)
+      - Cylinder(diameter = screw_d, height = depth + 1mm)
+        .translate(x = vx, y = vy, z = lift - depth + (depth + 1mm) / 2);
 
-// Bolt-down holder: baseplate + 4 standoffs on the board's rectangular hole
-// pattern. Screw the board down with self-tapping screws.
-pub part BoltHolder(
-    board_w: Length,
-    board_d: Length,
-    hole_dx: Length,
-    hole_dy: Length,
-    post_d = 6.0mm,
-    screw_d = 2.6mm,
-    standoff_h = 4.0mm,
-    base_t = 2.4mm,
-    margin = 4.0mm,       // baseplate overhang around the board
-    af = 14.0mm,
-    wall = 2.4mm,
-    surface_t = 2.4mm,
-) {
-    plate_w = board_w + 2 * margin;
-    plate_d = board_d + 2 * margin;
-    cols = bed_cols(board_w = board_w, af = af, wall = wall);
-    rows = bed_rows(board_d = board_d, af = af, wall = wall);
-
-    HolderBase(
-        plate_w = plate_w, plate_d = plate_d, base_t = base_t,
-        af = af, wall = wall, surface_t = surface_t,
-        cols = cols, rows = rows,
-    );
-
-    // 4 standoffs at the board hole pattern.
-    BoltPost(post_d = post_d, screw_d = screw_d, height = standoff_h, base_t = base_t)
-        .translate(x = [-hole_dx / 2, hole_dx / 2], y = [-hole_dy / 2, hole_dy / 2]);
-}
-
-// One corner clip placed at an explicit corner (sx, sy) = (±1, ±1). The post
-// stands just outside that board corner and the retaining hook overhangs back
-// toward the board centre. Built with translation only (no mirror/rotate) so
-// every copy fuses cleanly to the baseplate.
-part CornerClip(
-    board_w: Length,
-    board_d: Length,
-    board_t: Length,
-    base_t: Length,
-    lift: Length,         // gap under the board (airflow / component clearance)
-    sx: Scalar,           // corner X sign: -1 or +1
-    sy: Scalar,           // corner Y sign: -1 or +1
-    clip_t = 1.6mm,
-    lip = 1.4mm,
-) {
-    cx = (board_w / 2 + clip_t / 2) * sx;
-    cy = (board_d / 2 + clip_t / 2) * sy;
-    post_h = lift + board_t + lip;
-    // post sinks 0.6mm into the plate to fuse the union (avoid coincident face)
-    post = Cube(size_x = clip_t, size_y = clip_t, size_z = post_h + 0.6mm)
-        .translate(z = base_t - 0.6mm + (post_h + 0.6mm) / 2);
-    // inward hook over the top of the board: offset toward centre (-sx,-sy)
-    hook = Cube(size_x = clip_t + lip, size_y = clip_t + lip, size_z = lip)
-        .translate(x = -lip / 2 * sx, y = -lip / 2 * sy)
-        .translate(z = base_t + lift + board_t + lip / 2);
-    (post | hook).translate(x = cx, y = cy);
-}
-
-// Clip-in holder: baseplate + small board-rest pads + 4 corner clips. No screws.
-pub part ClipHolder(
-    board_w: Length,
-    board_d: Length,
-    board_t = 1.6mm,
-    lift = 3.0mm,
-    base_t = 2.4mm,
-    margin = 3.0mm,
-    af = 14.0mm,
-    wall = 2.4mm,
-    surface_t = 2.4mm,
-) {
-    plate_w = board_w + 2 * margin;
-    plate_d = board_d + 2 * margin;
-    cols = bed_cols(board_w = board_w, af = af, wall = wall);
-    rows = bed_rows(board_d = board_d, af = af, wall = wall);
-
-    HolderBase(
-        plate_w = plate_w, plate_d = plate_d, base_t = base_t,
-        af = af, wall = wall, surface_t = surface_t,
-        cols = cols, rows = rows,
-    );
-
-    // small rest pads so the board sits `lift` above the baseplate (pads sink
-    // 0.6mm into the plate to fuse the union)
-    Cube(size_x = 4mm, size_y = 4mm, size_z = lift + 0.6mm)
-        .translate(z = base_t - 0.6mm + (lift + 0.6mm) / 2)
-        .translate(x = [-board_w / 2 + 3mm, board_w / 2 - 3mm],
-                   y = [-board_d / 2 + 3mm, board_d / 2 - 3mm]);
-
-    // 4 corner clips holding the board down, each authored at its own corner
-    // with the hook pointing inward. Translation only — every clip fuses to the
-    // plate (mirror via scale(-1) would flip normals and leave clips floating).
-    CornerClip(board_w = board_w, board_d = board_d, board_t = board_t,
-               base_t = base_t, lift = lift, sx = -1.0, sy = -1.0);
-    CornerClip(board_w = board_w, board_d = board_d, board_t = board_t,
-               base_t = base_t, lift = lift, sx =  1.0, sy = -1.0);
-    CornerClip(board_w = board_w, board_d = board_d, board_t = board_t,
-               base_t = base_t, lift = lift, sx = -1.0, sy =  1.0);
-    CornerClip(board_w = board_w, board_d = board_d, board_t = board_t,
-               base_t = base_t, lift = lift, sx =  1.0, sy =  1.0);
+    Plug(af = af, surface_t = surface_t);
 }
