@@ -1,0 +1,224 @@
+# Board profiles for the cluster-shelf pipeline (read by scripts/build.py).
+#
+# Board frame: origin at the board's lower-left corner, X along `width`,
+# Y along `depth`, looking at the component side. All values in mm.
+#
+#   width, depth, thickness   board outline
+#   holes                     mounting-hole centres [x, y]
+#   screw_d                   pilot-hole diameter for a self-tapping screw
+#   lift                      floor top -> board underside (clear the parts and
+#                             pins on the board's underside)
+#   [[<board>.socket]]        connectors on the board edge:
+#       edge     left | right | bottom | top (left = x 0, bottom = y 0)
+#       at       centre position along that edge
+#       width    connector width along the edge
+#       height   connector height above the board top
+#       overhang how far it sticks out past the board edge
+#       ports    port centre heights above the board top (default: height/2;
+#                a stacked USB-A has two)
+#       plug     the mating cable plug's body [width, height, length]
+#                (typical moulded plugs; omit for non-cable sockets). Used to
+#                check whether it fits through a wall hex or needs room inside.
+#
+# `verified` says where the numbers come from. Anything marked "measure" is
+# an approximation: check it against your board before printing.
+
+# --- Raspberry Pi 4 Model B -------------------------------------------------
+# Official mechanical drawing (rpi4 rev 4.0). Same outline/holes as the Pi 5,
+# but Pi 5 sockets differ (Ethernet and USB swapped).
+[rpi4]
+name = "Raspberry Pi 4 Model B"
+verified = "official mechanical drawing (from memory, well known values)"
+width = 85.0
+depth = 56.0
+thickness = 1.4
+holes = [[3.5, 3.5], [61.5, 3.5], [3.5, 52.5], [61.5, 52.5]]
+screw_d = 2.5            # M2.5
+lift = 4.0
+
+[[rpi4.socket]]
+name = "USB-A x2 (USB 2.0)"
+edge = "right"
+at = 9.0
+width = 13.2
+height = 16.0
+overhang = 2.5
+plug = [16.0, 8.0, 38.0]
+ports = [4.5, 12.5]
+
+[[rpi4.socket]]
+name = "USB-A x2 (USB 3.0)"
+edge = "right"
+at = 27.0
+width = 13.2
+height = 16.0
+overhang = 2.5
+plug = [16.0, 8.0, 38.0]
+ports = [4.5, 12.5]
+
+[[rpi4.socket]]
+name = "Ethernet RJ45"
+edge = "right"
+at = 45.75
+width = 16.0
+height = 13.5
+overhang = 2.5
+plug = [12.0, 11.0, 32.0]
+ports = [6.0]
+
+[[rpi4.socket]]
+name = "USB-C power"
+edge = "bottom"
+at = 11.2
+width = 9.0
+height = 3.3
+overhang = 1.3
+plug = [12.0, 6.5, 28.0]
+
+[[rpi4.socket]]
+name = "micro-HDMI 0"
+edge = "bottom"
+at = 26.0
+width = 7.0
+height = 3.0
+overhang = 1.3
+plug = [11.0, 6.0, 30.0]
+
+[[rpi4.socket]]
+name = "micro-HDMI 1"
+edge = "bottom"
+at = 39.5
+width = 7.0
+height = 3.0
+overhang = 1.3
+plug = [11.0, 6.0, 30.0]
+
+[[rpi4.socket]]
+name = "3.5mm A/V jack"
+edge = "bottom"
+at = 53.5
+width = 7.0
+height = 6.0
+overhang = 2.5
+plug = [8.0, 8.0, 30.0]
+
+# --- Raspberry Pi Zero / Zero 2 W ------------------------------------------
+[rpi_zero]
+name = "Raspberry Pi Zero 2 W"
+verified = "official mechanical drawing (from memory, well known values)"
+width = 65.0
+depth = 30.0
+thickness = 1.0
+holes = [[3.5, 3.5], [61.5, 3.5], [3.5, 26.5], [61.5, 26.5]]
+screw_d = 2.5            # M2.5
+lift = 3.0
+
+[[rpi_zero.socket]]
+name = "mini-HDMI"
+edge = "bottom"
+at = 12.4
+width = 11.2
+height = 3.5
+overhang = 0.5
+plug = [15.0, 7.0, 30.0]
+
+[[rpi_zero.socket]]
+name = "micro-USB (data/OTG)"
+edge = "bottom"
+at = 41.4
+width = 8.0
+height = 3.0
+overhang = 1.0
+plug = [11.0, 7.0, 25.0]
+
+[[rpi_zero.socket]]
+name = "micro-USB (power)"
+edge = "bottom"
+at = 54.0
+width = 8.0
+height = 3.0
+overhang = 1.0
+plug = [11.0, 7.0, 25.0]
+
+[[rpi_zero.socket]]
+name = "microSD"
+edge = "left"
+at = 16.9
+width = 12.0
+height = 1.5
+overhang = 2.0
+
+# --- Raspberry Pi Pico / Pico 2 --------------------------------------------
+# With soldered pin headers pointing down, raise `lift` to ~9.
+[pico]
+name = "Raspberry Pi Pico / Pico 2"
+verified = "Pico datasheet (from memory, well known values)"
+width = 51.0
+depth = 21.0
+thickness = 1.0
+holes = [[2.0, 4.8], [2.0, 16.2], [49.0, 4.8], [49.0, 16.2]]
+screw_d = 1.8            # M2 self-tapping into 2.1mm board holes
+lift = 3.0
+
+[[pico.socket]]
+name = "micro-USB"
+edge = "left"
+at = 10.5
+width = 8.0
+height = 3.0
+overhang = 1.3
+plug = [11.0, 7.0, 25.0]
+
+# --- ST Nucleo-64 ----------------------------------------------------------
+# MEASURE: hole positions and the ST-LINK USB position below are rough
+# approximations; the exact values depend on the board revision (MB1136 has
+# mini-USB, MB1717/MB2046 have USB-C). The morpho pins stick out underneath.
+[nucleo]
+name = "ST Nucleo-64"
+verified = "measure (approximate)"
+width = 70.0
+depth = 82.5
+thickness = 1.6
+holes = [[5.0, 5.25], [65.0, 5.25], [5.0, 77.25], [65.0, 77.25]]
+screw_d = 2.8            # M3 self-tapping
+lift = 10.0
+
+[[nucleo.socket]]
+name = "ST-LINK USB"
+edge = "top"
+at = 35.0
+width = 12.0
+height = 4.5
+overhang = 1.5
+plug = [12.0, 7.0, 28.0]
+
+# --- Nordic nRF52840-DK (PCA10056) -----------------------------------------
+# Outline 132 x 64 mm. MEASURE: hole and connector positions are
+# approximations; the DevZone says the holes follow the Arduino Uno pattern.
+[nrf52840dk]
+name = "Nordic nRF52840-DK"
+verified = "outline measured by user; holes/connectors: measure (approximate)"
+width = 132.0
+depth = 64.0
+thickness = 1.6
+holes = [[4.0, 4.0], [128.0, 4.0], [4.0, 60.0], [128.0, 60.0]]
+screw_d = 2.8            # M3 self-tapping
+lift = 10.0
+
+[[nrf52840dk.socket]]
+name = "micro-USB (J-Link / interface MCU)"
+edge = "left"
+at = 32.0
+width = 8.0
+height = 3.0
+overhang = 1.0
+plug = [11.0, 7.0, 25.0]
+
+[[nrf52840dk.socket]]
+name = "micro-USB (nRF USB)"
+edge = "bottom"
+at = 110.0
+width = 8.0
+height = 3.0
+overhang = 1.0
+plug = [11.0, 7.0, 25.0]

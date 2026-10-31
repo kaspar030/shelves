@@ -8,7 +8,7 @@
 //   use shelves::tray::*;
 //   Tray(height = 30mm);
 //   use shelves::holders::*;
-//   BoltHolder(board_w = 70mm, board_d = 82mm, hole_dx = 60mm, hole_dy = 72mm);
+//   CornerPost(vx = 2mm, vy = 5mm, lift = 4mm);
 
 pub mod params;
 pub mod hexgrid;
@@ -16,7 +16,6 @@ pub mod connector;
 pub mod holders;
 pub mod cables;
 pub mod tray;
-pub mod devices;
 
 // Convenience re-exports so callers can `use shelves::*;`
 pub use params::*;
