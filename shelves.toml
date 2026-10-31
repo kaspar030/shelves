@@ -34,6 +34,12 @@ name   = "tray_low"
 height = "16.4mm"        # Pico, Pi Zero
 wall_align = "continuous"
 
+[[shelf]]
+kind   = "tray"
+name   = "tray_tall"
+height = "49.2mm"        # boards with HATs, tall cooling
+wall_align = "continuous"
+
 # --- board holders (corner posts that clip into a tray floor) ---------------
 [[shelf]]
 kind   = "holder"

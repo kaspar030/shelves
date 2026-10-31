@@ -14,6 +14,11 @@
 #       width    connector width along the edge
 #       height   connector height above the board top
 #       overhang how far it sticks out past the board edge
+#       ports    port centre heights above the board top (default: height/2;
+#                a stacked USB-A has two)
+#       plug     the mating cable plug's body [width, height, length]
+#                (typical moulded plugs; omit for non-cable sockets). Used to
+#                check whether it fits through a wall hex or needs room inside.
 #
 # `verified` says where the numbers come from. Anything marked "measure" is
 # an approximation: check it against your board before printing.
@@ -38,6 +43,8 @@ at = 9.0
 width = 13.2
 height = 16.0
 overhang = 2.5
+plug = [16.0, 8.0, 38.0]
+ports = [4.5, 12.5]
 
 [[rpi4.socket]]
 name = "USB-A x2 (USB 3.0)"
@@ -46,6 +53,8 @@ at = 27.0
 width = 13.2
 height = 16.0
 overhang = 2.5
+plug = [16.0, 8.0, 38.0]
+ports = [4.5, 12.5]
 
 [[rpi4.socket]]
 name = "Ethernet RJ45"
@@ -54,6 +63,8 @@ at = 45.75
 width = 16.0
 height = 13.5
 overhang = 2.5
+plug = [12.0, 11.0, 32.0]
+ports = [6.0]
 
 [[rpi4.socket]]
 name = "USB-C power"
@@ -62,6 +73,7 @@ at = 11.2
 width = 9.0
 height = 3.3
 overhang = 1.3
+plug = [12.0, 6.5, 28.0]
 
 [[rpi4.socket]]
 name = "micro-HDMI 0"
@@ -70,6 +82,7 @@ at = 26.0
 width = 7.0
 height = 3.0
 overhang = 1.3
+plug = [11.0, 6.0, 30.0]
 
 [[rpi4.socket]]
 name = "micro-HDMI 1"
@@ -78,6 +91,7 @@ at = 39.5
 width = 7.0
 height = 3.0
 overhang = 1.3
+plug = [11.0, 6.0, 30.0]
 
 [[rpi4.socket]]
 name = "3.5mm A/V jack"
@@ -86,6 +100,7 @@ at = 53.5
 width = 7.0
 height = 6.0
 overhang = 2.5
+plug = [8.0, 8.0, 30.0]
 
 # --- Raspberry Pi Zero / Zero 2 W ------------------------------------------
 [rpi_zero]
@@ -105,6 +120,7 @@ at = 12.4
 width = 11.2
 height = 3.5
 overhang = 0.5
+plug = [15.0, 7.0, 30.0]
 
 [[rpi_zero.socket]]
 name = "micro-USB (data/OTG)"
@@ -113,6 +129,7 @@ at = 41.4
 width = 8.0
 height = 3.0
 overhang = 1.0
+plug = [11.0, 7.0, 25.0]
 
 [[rpi_zero.socket]]
 name = "micro-USB (power)"
@@ -121,6 +138,7 @@ at = 54.0
 width = 8.0
 height = 3.0
 overhang = 1.0
+plug = [11.0, 7.0, 25.0]
 
 [[rpi_zero.socket]]
 name = "microSD"
@@ -149,6 +167,7 @@ at = 10.5
 width = 8.0
 height = 3.0
 overhang = 1.3
+plug = [11.0, 7.0, 25.0]
 
 # --- ST Nucleo-64 ----------------------------------------------------------
 # MEASURE: hole positions and the ST-LINK USB position below are rough
@@ -171,6 +190,7 @@ at = 35.0
 width = 12.0
 height = 4.5
 overhang = 1.5
+plug = [12.0, 7.0, 28.0]
 
 # --- Nordic nRF52840-DK (PCA10056) -----------------------------------------
 # Outline 132 x 64 mm. MEASURE: hole and connector positions are
@@ -192,6 +212,7 @@ at = 32.0
 width = 8.0
 height = 3.0
 overhang = 1.0
+plug = [11.0, 7.0, 25.0]
 
 [[nrf52840dk.socket]]
 name = "micro-USB (nRF USB)"
@@ -200,3 +221,4 @@ at = 110.0
 width = 8.0
 height = 3.0
 overhang = 1.0
+plug = [11.0, 7.0, 25.0]

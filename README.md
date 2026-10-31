@@ -28,7 +28,7 @@ The whole system is built around **one universal honeycomb hex grid**:
      pegs↑ sockets↓      hex floor: posts snap into any cell
 ```
 
-Trays are 32.8mm (std) and 16.4mm (low) tall — multiples of the 16.4mm hex
+Trays are 16.4mm (low), 32.8mm (std) and 49.2mm (tall) — multiples of the 16.4mm hex
 row pitch — so with `wall_align = "continuous"` the wall honeycomb runs on
 unbroken through any stack, in any order.
 
@@ -131,6 +131,21 @@ The result is `build/<name>_plan.txt`: how many of each post to print, which
 floor cell each goes into and how it is turned, and the room left in front of
 every connector. **Print posts upside down** (pad on the bed, plug up): no
 supports needed.
+
+## Connectors: room inside or through the wall
+
+Every connector port is checked against its mating plug (`plug = [w, h,
+length]` in `devices.toml`, typical moulded plugs):
+
+* **ok** — the plug fits inside the tray (room ≥ plug length + 5mm bend);
+* **through wall hex** — the socket is within 12mm of a wall and the plug
+  body fits through a wall hex lined up with it. The planner raises the
+  board (`lift`, within what the tray height allows) to line ports up with
+  the hex rows;
+* **TOO TIGHT** — neither; the planner minimises these first.
+
+A 14mm wall hex passes plugs up to about 11.7 × 7mm (with 0.4mm clearance):
+micro-USB and micro-HDMI, not USB-A (~16 × 8) or RJ45 (~12 × 11).
 
 ## Board data (`devices.toml`)
 

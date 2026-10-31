@@ -159,8 +159,9 @@ pub part Tray(
     // ---- Solid corner posts (full height) ----------------------------------
     // Each post is flush with the tray's outer corner and runs from z=0 to the
     // rim. The peg stands on top; the socket is bored into the base.
-    posts = Cube(size_x = post, size_y = post, size_z = height)
-        .translate(z = height / 2)
+    // (extruded from exactly z = 0 and cut to height with the rest below)
+    posts = Rect(width = post, height = post)
+        .extrude(height = 2 * height)
         .translate(x = [-px, px], y = [-py, py]);
 
     // ---- Stacking sockets: bored UP into the post bases ---------------------
@@ -169,9 +170,10 @@ pub part Tray(
         .translate(x = [-px, px], y = [-py, py]);
 
     // Assemble the box (the floor leaves room for the posts, so their faces
-    // meet instead of overlapping), cut it to height, carve the sockets.
+    // meet instead of overlapping), cut it to height with a box centred on
+    // z = 0 (its top is exactly `height`: 2h - h is exact), carve the sockets.
     (((floor_panel - posts) | fb | lr | posts)
-        & Cube(size_x = width + 2mm, size_y = depth + 2mm, size_z = height).translate(z = height / 2))
+        & Cube(size_x = width + 2mm, size_y = depth + 2mm, size_z = 2 * height))
         - sockets;
 
     // ---- Stacking pegs on top of the posts ---------------------------------

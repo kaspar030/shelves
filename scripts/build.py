@@ -44,6 +44,7 @@ DEVICES = ROOT / "devices.toml"
 # --- Tray geometry (keep in sync with shelves/params.mu + shelves/tray.mu) --
 TRAY_W, TRAY_D = 160.0, 100.0
 FLOOR, WALL, POST = 2.0, 2.0, 10.0
+WALL_INSET, WALL_SINK, WALL_OVER, WALL_BOTTOM = 0.3, 0.5, 1.0, 1.5   # see Tray
 HEX_AF, HEX_WALL, HEX_MARGIN = 14.0, 2.4, 4.0
 SQRT3 = math.sqrt(3.0)
 COL_PITCH = 0.75 * 2 * (HEX_AF / SQRT3) + HEX_WALL * SQRT3 / 2
@@ -55,6 +56,9 @@ POST_PAD_D = 6.0                          # CornerPost pad diameter
 SOCKET_ROOM_CAP = 40.0    # more room than this in front of a socket is "enough"
 ROOM_STEP = 10.0          # room differences below this don't beat fewer post variants
 EDGE_GAP = 1.0            # minimum gap board <-> tray walls / corner posts
+BEND = 5.0                # room for the cable bend behind a plug inside the tray
+THROUGH_MAX = 12.0        # a plug pushed through a wall hex reaches a socket this far in
+THROUGH_CLEAR = 0.4       # clearance around a plug passing a wall hex
 
 KINDS = {"tray", "holder", "cable_comb", "cable_clip"}
 
@@ -108,6 +112,74 @@ def nearest_cell(x: float, y: float) -> tuple[int, int] | None:
         if best is None or d < best[0]:
             best = (d, (c, r))
     return best[1] if best else None
+
+
+# --- Wall hexes (mirrors shelves/tray.mu) -------------------------------------
+def _field_rows(align, fitted, wall_h):
+    z0 = 0.05 - HEX_AF / 2
+    if align == "continuous":
+        return int((FLOOR + wall_h + HEX_AF / 2 - z0) / ROW_PITCH) + 2
+    return fitted
+
+
+def _field_shift(align, wall_h, rows):
+    rp = ROW_PITCH
+    lowest = -(rows - 1) / 2 * rp - rp / 4 - HEX_AF / 2
+    highest = (rows - 1) / 2 * rp + rp / 4 + HEX_AF / 2
+    if align == "raised":
+        return -wall_h / 2 + WALL_BOTTOM - lowest
+    if align == "lowered":
+        return wall_h / 2 - WALL_BOTTOM - highest
+    if align == "continuous":
+        return 0.05 - HEX_AF / 2 - FLOOR - wall_h / 2 + (rows - 1) / 2 * rp + rp / 4
+    return 0.0
+
+
+def tray_height(tray: dict) -> float:
+    return float(str(tray.get("height", "32.8mm")).removesuffix("mm"))
+
+
+def wall_hexes(tray: dict):
+    """Hex centres on each wall as (lateral, z): lateral is x on the front/back
+    walls and y on the left/right walls; z is above the tray bottom."""
+    height = tray_height(tray)
+    align = tray.get("wall_align", "center")
+    wall_h = height - FLOOR
+    rows = _field_rows(align, fit_rows(wall_h, HEX_MARGIN), wall_h)
+    shift = _field_shift(align, wall_h, rows) - (WALL_OVER - WALL_SINK) / 2
+    panel_h = WALL_SINK + wall_h + WALL_OVER
+    mid = FLOOR - WALL_SINK + panel_h / 2 + shift
+    out = {}
+    for walls, length in ((("front", "back"), TRAY_W), (("left", "right"), TRAY_D)):
+        cols = fit_cols(length - 2 * POST + 2 * HEX_MARGIN, HEX_MARGIN)
+        hexes = []
+        for c in range(cols):
+            lat = (c - (cols - 1) / 2) * COL_PITCH
+            for r in range(rows):
+                z = mid + (r - (rows - 1) / 2) * ROW_PITCH - ROW_PITCH / 4 + (c % 2) * ROW_PITCH / 2
+                hexes.append((lat, z))
+        for wname in walls:
+            out[wname] = hexes
+    return out
+
+
+def through_lifts(hexes, lat, port_z0, plug, top):
+    """Board lifts at which a plug (w, h) centred at `lat` along the wall and
+    `port_z0` + lift above the tray bottom passes through a wall hex (and stays
+    between the floor and the rim). Returns a list of (lo, hi) intervals."""
+    a = plug[0] / 2 + THROUGH_CLEAR
+    b = plug[1] / 2 + THROUGH_CLEAR
+    r = HEX_AF / SQRT3
+    out = []
+    for hl, hz in hexes:
+        dx = abs(lat - hl)
+        reach = min(HEX_AF / 2 - b, SQRT3 * (r - dx - a) - b)
+        if reach < 0:
+            continue
+        lo, hi = max(hz - reach, FLOOR + b), min(hz + reach, top - b)
+        if lo <= hi:
+            out.append((lo - port_z0, hi - port_z0))
+    return out
 
 
 # --- Holder planning ---------------------------------------------------------
@@ -175,7 +247,7 @@ class Board:
     rotation: int                    # board rotation on the tray (deg)
     origin: tuple[float, float]      # board centre in tray coordinates
     size: tuple[float, float]        # rotated board size
-    socket_room: list[tuple[str, float]]
+    ports: list[tuple[str, float, str]]   # (port, room in front, status)
 
 
 @dataclass
@@ -227,6 +299,8 @@ def hole_clusters(holes):
 
 
 def socket_fronts(dev: dict, rotation: int):
+    """(name, front point, outward normal, socket) per connector, relative to
+    the board centre and rotated."""
     w, d = dev["width"], dev["depth"]
     out = []
     for s in dev.get("socket", []):
@@ -235,34 +309,80 @@ def socket_fronts(dev: dict, rotation: int):
         edge_pt = {"left": (0, along), "right": (w, along),
                    "bottom": (along, 0), "top": (along, d)}[s["edge"]]
         front = (edge_pt[0] + nx * s["overhang"], edge_pt[1] + ny * s["overhang"])
-        out.append((s["name"], rot((front[0] - w / 2, front[1] - d / 2), rotation), rot((nx, ny), rotation)))
+        out.append((s["name"], rot((front[0] - w / 2, front[1] - d / 2), rotation),
+                    rot((nx, ny), rotation), s))
     return out
 
 
 def room_ahead(front, normal, region, others):
     """Free distance from a connector front to the region border, or to the
-    first other board in its way."""
+    first other board in its way, and whether that is the wall."""
     (fx, fy), (nx, ny) = front, normal
     x0, x1, y0, y1 = region
     r = (x1 - fx if nx > 0.5 else fx - x0 if nx < -0.5 else y1 - fy if ny > 0.5 else fy - y0)
+    wall = True
     for bx0, bx1, by0, by1 in others:
         if bx0 <= fx <= bx1 and by0 <= fy <= by1:
-            return -1.0       # the connector sticks into the other board
+            return -1.0, False    # the connector sticks into the other board
         if abs(nx) > 0.5 and by0 < fy < by1:
             d = bx0 - fx if nx > 0 else fx - bx1
         elif abs(ny) > 0.5 and bx0 < fx < bx1:
             d = by0 - fy if ny > 0 else fy - by1
         else:
             continue
-        if d >= 0:
-            r = min(r, d)
-    return r
+        if 0 <= d < r:
+            r, wall = d, False
+    return r, wall
 
 
-INNER = (-(TRAY_W / 2 - WALL), TRAY_W / 2 - WALL, -(TRAY_D / 2 - WALL), TRAY_D / 2 - WALL)
+def wall_name(normal):
+    nx, ny = normal
+    return "right" if nx > 0.5 else "left" if nx < -0.5 else "back" if ny > 0.5 else "front"
 
 
-def plan_group(dev: dict, group, region=INNER, step: float = 1.0):
+_IN = WALL + WALL_INSET
+INNER = (-(TRAY_W / 2 - _IN), TRAY_W / 2 - _IN, -(TRAY_D / 2 - _IN), TRAY_D / 2 - _IN)
+
+
+def assess_ports(dev, items, hexes, lift_range, top):
+    """Pick the board lift that gets the most cramped ports through wall
+    hexes. `items` are (board, name, room, at_wall, front, normal, socket).
+    Returns (lift, [(board, label, room, status)], n_bad)."""
+    t = dev["thickness"]
+    ports = []
+    for k, nm, room, at_wall, (fx, fy), n, s in items:
+        plug = s.get("plug")
+        zs = s.get("ports", [s["height"] / 2])
+        for i, pz in enumerate(zs):
+            label = nm if len(zs) == 1 else f"{nm} [{('lower', 'upper', '3rd')[i]}]"
+            inside = plug is None or room >= plug[2] + BEND
+            ivals = []
+            if not inside and at_wall and room <= THROUGH_MAX:
+                lat = fx if abs(n[1]) > 0.5 else fy
+                ivals = through_lifts(hexes[wall_name(n)], lat, FLOOR + t + pz, plug, top)
+            ports.append((k, label, room, inside, ivals))
+    lo, hi = lift_range
+    cands = sorted({lo} | {max(lo, a) for *_, iv in ports for a, _ in iv if max(lo, a) <= hi})
+    best = None
+    for lift in cands:
+        n_through = sum(1 for *_, iv in ports if any(a <= lift <= b for a, b in iv))
+        if best is None or n_through > best[0]:
+            best = (n_through, lift)
+    lift = best[1]
+    out, bad = [], 0
+    for k, label, room, inside, iv in ports:
+        if inside:
+            status = "ok"
+        elif any(a <= lift <= b for a, b in iv):
+            status = "through wall hex"
+        else:
+            status = "TOO TIGHT"
+            bad += 1
+        out.append((k, label, room, status))
+    return lift, out, bad
+
+
+def plan_group(dev: dict, group, tray: dict, region=INNER, step: float = 1.0):
     """Best position of a rigid group of boards inside `region`.
 
     `group` lists the boards as (dx, dy, rotation): centre offset from the
@@ -277,8 +397,8 @@ def plan_group(dev: dict, group, region=INNER, step: float = 1.0):
             hx, hy = rot((h[0] - w / 2, h[1] - d / 2), r)
             holes.append((hx + dx, hy + dy))
             owner.append(k)
-        for nm, (fx, fy), n in socket_fronts(dev, r):
-            socks.append((k, nm, (fx + dx, fy + dy), n))
+        for nm, (fx, fy), n, sk in socket_fronts(dev, r):
+            socks.append((k, nm, (fx + dx, fy + dy), n, sk))
     clusters = hole_clusters(holes)
     gx0, gx1 = min(r[0] for r in rects), max(r[1] for r in rects)
     gy0, gy1 = min(r[2] for r in rects), max(r[3] for r in rects)
@@ -300,6 +420,10 @@ def plan_group(dev: dict, group, region=INNER, step: float = 1.0):
                        for a in cells for b in cells})
     mid = ((rx0 + rx1) / 2, (ry0 + ry1) / 2)
     px, py = TRAY_W / 2 - POST - EDGE_GAP, TRAY_D / 2 - POST - EDGE_GAP
+    hexes = wall_hexes(tray)
+    top = tray_height(tray)
+    tallest = max((sk["height"] for *_, sk in socks), default=0.0)
+    lift_range = (dev["lift"], max(dev["lift"], top - 0.5 - FLOOR - dev["thickness"] - tallest))
     best = None
     for cx, cy in centres:
         if not (lo_x - 1e-6 <= cx <= hi_x + 1e-6 and lo_y - 1e-6 <= cy <= hi_y + 1e-6):
@@ -307,12 +431,18 @@ def plan_group(dev: dict, group, region=INNER, step: float = 1.0):
         placed = [(x0 + cx, x1 + cx, y0 + cy, y1 + cy) for x0, x1, y0, y1 in rects]
         if any((x0 < -px or x1 > px) and (y0 < -py or y1 > py) for x0, x1, y0, y1 in placed):
             continue      # hits a tray corner post
-        room = [(k, nm, room_ahead((fx + cx, fy + cy), n, region, placed[:k] + placed[k + 1:]))
-                for k, nm, (fx, fy), n in socks]
-        if any(r < EDGE_GAP for _, _, r in room):
+        items = []
+        for k, nm, (fx, fy), n, sk in socks:
+            room, at_wall = room_ahead((fx + cx, fy + cy), n, region, placed[:k] + placed[k + 1:])
+            items.append((k, nm, room, at_wall, (fx + cx, fy + cy), n, sk))
+        if any(it[2] < EDGE_GAP for it in items):
             continue
-        # leximin: compare the most cramped connector first, then the next
-        bucket = tuple(sorted(int(min(r, SOCKET_ROOM_CAP) // ROOM_STEP) for _, _, r in room))
+        lift, status, bad = assess_ports(dev, items, hexes, lift_range, top)
+        # fewest unreachable ports, then leximin over the room in front of the
+        # ports plugged from inside (most cramped first)
+        bucket = (-bad,) + tuple(sorted(
+            SOCKET_ROOM_CAP // ROOM_STEP if st != "ok" else int(min(r, SOCKET_ROOM_CAP) // ROOM_STEP)
+            for _, _, r, st in status))
         if best is not None and bucket < best[0][0]:
             continue
         posts = []
@@ -330,16 +460,16 @@ def plan_group(dev: dict, group, region=INNER, step: float = 1.0):
             continue
         n_var = len(group_variants(posts))
         max_v = max(math.hypot(*v) for p in posts for v in p.v)
-        score = (bucket, -n_var, -round(max_v, 1), -abs(cx - mid[0]) - abs(cy - mid[1]))
+        score = (bucket, -n_var, -round(max_v, 1), -lift, -abs(cx - mid[0]) - abs(cy - mid[1]))
         if best is None or score > best[0]:
             boards = [Board(r, (dx + cx, dy + cy), ((w, d) if r in (0, 180) else (d, w)),
-                            [(nm, rr) for k2, nm, rr in room if k2 == k])
+                            [(lb, rr, st) for k2, lb, rr, st in status if k2 == k])
                       for k, (dx, dy, r) in enumerate(group)]
-            best = (score, boards, posts)
+            best = (score, boards, posts, lift)
     return best
 
 
-def plan_holder(key: str, dev: dict, count: int = 1) -> Layout:
+def plan_holder(key: str, dev: dict, tray: dict, count: int = 1) -> Layout:
     """Lay out `count` boards in one tray as a row along X or Y, all turned
     the same way or alternating by 180°, with the gap between them varied;
     keep the layout with the most room in front of the connectors."""
@@ -355,7 +485,7 @@ def plan_holder(key: str, dev: dict, count: int = 1) -> Layout:
                          for rr in rots]
                 for gap in range(0, 42, 2):
                     total = sum(along) + gap * (count - 1)
-                    if total > (TRAY_W if axis == 0 else TRAY_D) - 2 * WALL - 2 * EDGE_GAP:
+                    if total > (TRAY_W if axis == 0 else TRAY_D) - 2 * _IN - 2 * EDGE_GAP:
                         break
                     pos, cur = [], -total / 2
                     for a in along:
@@ -375,20 +505,21 @@ def plan_holder(key: str, dev: dict, count: int = 1) -> Layout:
                                        for p, q, rr in zip(pos, perp, rots)])
     best = None
     for g in groups:
-        res = plan_group(dev, g, step=1.0 if count == 1 else 2.0)
+        res = plan_group(dev, g, tray, step=1.0 if count == 1 else 2.0)
         if res is not None and (best is None or res[0] > best[0]):
             best = res
     if best is None:
         raise ValueError(f"{key}: {count} board(s) don't fit the {TRAY_W:g}x{TRAY_D:g} tray grid")
-    _, boards, posts = best
-    return Layout(key, dev["lift"], boards, posts, group_variants(posts))
+    _, boards, posts, lift = best
+    return Layout(key, lift, boards, posts, group_variants(posts))
 
 
-def plan_text(dev: dict, lay: Layout, name: str) -> str:
+def plan_text(dev: dict, lay: Layout, name: str, tray: dict) -> str:
     letters = "abcdefghijklmnop"
     lines = [f"{dev['name']}  ({lay.device}, data: {dev.get('verified', '?')})",
-             f"{len(lay.boards)} board(s) of {dev['width']:g} x {dev['depth']:g} mm; "
-             f"lift (floor top -> board underside): {lay.lift:g} mm", ""]
+             f"{len(lay.boards)} board(s) of {dev['width']:g} x {dev['depth']:g} mm in "
+             f"{tray.get('name', '?')} ({tray_height(tray):g} mm, walls {tray.get('wall_align', 'center')}); "
+             f"lift (floor top -> board underside): {lay.lift:.2f} mm", ""]
     for k, b in enumerate(lay.boards):
         lines.append(f"board {k + 1}: rotated {b.rotation}°, centre at x={b.origin[0]:+.0f} "
                      f"y={b.origin[1]:+.0f} mm (tray centre = 0,0)")
@@ -403,10 +534,10 @@ def plan_text(dev: dict, lay: Layout, name: str) -> str:
         who = "+".join(str(b + 1) for b in p.board)
         lines.append(f"  board {who}: hole {hs} -> cell {p.cell[0]},{p.cell[1]}"
                      f"  post {letters[p.variant]} rotated {p.angle}°")
-    lines += ["", "room in front of each connector (to the wall or the next board):"]
+    lines += ["", "connectors (room in front = to the wall or the next board):"]
     for k, b in enumerate(lay.boards):
-        for nm, r in b.socket_room:
-            lines.append(f"  board {k + 1}: {nm:38s} {r:5.1f} mm")
+        for nm, r, st in b.ports:
+            lines.append(f"  board {k + 1}: {nm:42s} {r:5.1f} mm  {st}")
     tallest = max((s["height"] for s in dev.get("socket", [])), default=0.0)
     need = FLOOR + lay.lift + dev["thickness"] + tallest
     lines += ["", f"top of the tallest connector: {need:.1f} mm above the tray bottom"]
@@ -554,13 +685,15 @@ def main() -> int:
             key = shelf.get("device")
             if key not in devices:
                 sys.exit(f"{name}: unknown device {key!r} (see devices.toml)")
-            lay = plan_holder(key, devices[key], int(shelf.get("count", 1)))
-            text = plan_text(devices[key], lay, name)
-            (BUILD / f"{name}_plan.txt").write_text(text, encoding="utf-8")
-            worst = min((r for b in lay.boards for _, r in b.socket_room), default=0)
-            print(f"plan {name}: {len(lay.boards)} board(s), {len(lay.posts)} posts in "
-                  f"{len(lay.variants)} variant(s), min connector room {worst:.0f}mm")
             tray = next((t for t in all_shelves if t["name"] == shelf.get("tray", "tray_std")), {})
+            lay = plan_holder(key, devices[key], tray, int(shelf.get("count", 1)))
+            text = plan_text(devices[key], lay, name, tray)
+            (BUILD / f"{name}_plan.txt").write_text(text, encoding="utf-8")
+            sts = [st for b in lay.boards for *_, st in b.ports]
+            print(f"plan {name}: {len(lay.boards)} board(s), {len(lay.posts)} posts in "
+                  f"{len(lay.variants)} variant(s), lift {lay.lift:.1f}mm; ports: "
+                  f"{sts.count('ok')} ok, {sts.count('through wall hex')} through the wall, "
+                  f"{sts.count('TOO TIGHT')} too tight")
             src += render_holder(shelf, devices[key], lay, tray if args.preview else None)
         else:
             src += render_cable(shelf)
