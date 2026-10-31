@@ -1,13 +1,16 @@
 // Copyright © 2026
 // SPDX-License-Identifier: MIT
 //
-// Board holders: four separate CORNER POSTS per board instead of a baseplate.
-// Each post plugs into one hex cell of a tray floor and carries one board
-// mounting hole on top; the board is screwed down with self-tapping screws.
+// Board holders: separate POSTS per board instead of a baseplate. Each post
+// plugs into one hex cell of a tray floor and carries one or two board
+// mounting holes on top (two when the holes are too close for separate
+// posts, e.g. at the ends of a Pico); the board is screwed down with
+// self-tapping screws.
 //
 //   * The post body is a prism: the 2D hull of a hex shoulder (centred on the
-//     plug, a bit larger than the hole, so it rests on the floor web) and a
-//     round pad at the board hole, offset (vx, vy) from the plug centre.
+//     plug, a bit larger than the hole, so it rests on the floor web) and
+//     round pads at the board holes, offset (vx, vy) / (vx2, vy2) from the
+//     plug centre (a single-hole post repeats the first offset).
 //   * Because a board hole rarely sits exactly over a cell centre, the offset
 //     is chosen per board by scripts/build.py, which also tells you which
 //     cells to use. Posts at diagonally opposite corners are the same part
@@ -36,6 +39,8 @@ fn min_len(a: Length, b: Length) {
 pub part CornerPost(
     vx: Length,           // board-hole offset from the plug centre (X)
     vy: Length,           // board-hole offset from the plug centre (Y)
+    vx2: Length,          // second board hole (= vx, vy for a single hole)
+    vy2: Length,
     lift: Length,         // floor top -> board underside
     post_d = 6.0mm,       // pad diameter under the board hole
     screw_d = 2.5mm,      // self-tapping pilot hole
@@ -46,13 +51,16 @@ pub part CornerPost(
 ) {
     r_shoulder = (af + 2 * shoulder) / SQRT3;
     depth = min_len(a = screw_depth, b = lift - 1mm);
+    pilot = Cylinder(diameter = screw_d, height = depth + 1mm)
+        .translate(z = lift - depth + (depth + 1mm) / 2);
 
     {
         Hex(radius = r_shoulder);
         Circle(radius = post_d / 2, center = (x = vx, y = vy));
+        Circle(radius = post_d / 2, center = (x = vx2, y = vy2));
     }.hull().extrude(height = lift)
-      - Cylinder(diameter = screw_d, height = depth + 1mm)
-        .translate(x = vx, y = vy, z = lift - depth + (depth + 1mm) / 2);
+      - pilot.translate(x = vx, y = vy)
+      - pilot.translate(x = vx2, y = vy2);
 
     Plug(af = af, surface_t = surface_t);
 }

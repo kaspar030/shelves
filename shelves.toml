@@ -5,29 +5,34 @@
 # kind:
 #   "tray"       – the stackable open-top hex-grid box (160 x 100 mm,
 #                  perforated floor + walls) -> build/<name>.stl.
-#                  Options: height, width, depth, raised_walls (full hexes low
-#                  on the wall, half hexes open at the rim; for low trays).
+#                  Options: height, width, depth, wall_align = "center" |
+#                  "raised" | "lowered" | "continuous" (see shelves/tray.mu).
 #   "holder"     – four corner posts that plug into a tray floor and carry a
 #                  board (`device`, see devices.toml) -> build/<name>_a.stl,
 #                  _b.stl, ... plus build/<name>_plan.txt, which says how many
 #                  of each to print and which floor cells to plug them into.
-#                  `tray` names the tray it goes in (default tray_std); with
+#                  `count` boards share one tray (laid out side by side, turned
+#                  as needed). `tray` names the tray (default tray_std); with
 #                  --preview, build/preview_<name>.stl shows the assembly.
-#   "cable_comb" / "cable_hook" – wall-mounted cable management.
+#   "cable_comb" (teeth = N) / "cable_clip" (opening = bundle size) –
+#                  wall-mounted cable management.
 #
 # Shelf names must be lowercase identifiers.
 
 # --- trays ------------------------------------------------------------------
+# Heights are multiples of the 16.4mm hex row pitch, so with
+# wall_align = "continuous" the wall honeycomb runs on through any stack.
 [[shelf]]
 kind   = "tray"
 name   = "tray_std"
-height = "30mm"          # Raspberry Pi 4, Nucleo, nRF52840-DK
+height = "32.8mm"        # Raspberry Pi 4, Nucleo, nRF52840-DK
+wall_align = "continuous"
 
 [[shelf]]
 kind   = "tray"
 name   = "tray_low"
-height = "20mm"          # Pico, Pi Zero
-raised_walls = true
+height = "16.4mm"        # Pico, Pi Zero
+wall_align = "continuous"
 
 # --- board holders (corner posts that clip into a tray floor) ---------------
 [[shelf]]
@@ -57,6 +62,23 @@ kind   = "holder"
 device = "nrf52840dk"
 name   = "holder_nrf52840dk"
 
+# --- two boards per tray ----------------------------------------------------
+# Two Nucleo-64 don't fit: side by side they reach past the tray's corner
+# stacking posts, and at 82.5mm they are too deep to pass between them.
+
+[[shelf]]
+kind   = "holder"
+device = "rpi4"
+name   = "holder_rpi4_x2"
+count  = 2
+
+[[shelf]]
+kind   = "holder"
+device = "rpi_zero"
+name   = "holder_rpi_zero_x2"
+count  = 2
+tray   = "tray_low"
+
 # --- cable management (clip into a hex wall) --------------------------------
 [[shelf]]
 kind   = "cable_comb"
@@ -64,6 +86,6 @@ name   = "cable_comb_4"
 teeth  = 4
 
 [[shelf]]
-kind   = "cable_hook"
-name   = "cable_hook"
+kind   = "cable_clip"
+name   = "cable_clip"
 opening = "12mm"

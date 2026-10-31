@@ -11,6 +11,7 @@
 //     cell; being hexagonal it cannot rotate in the hex hole.
 //   * Barb: a slightly larger hex flange near the tip, tapered toward the tip
 //     (lead-in) and flat on top to catch the BACK side of the surface.
+//   * Fingers: the shaft is a slotted tube so the barb can flex through.
 
 use std::geo2d::*;
 use std::geo3d::*;
@@ -73,59 +74,15 @@ pub part Plug(
         - slots;
 }
 
-// Two plugs stacked vertically in the SAME column, spacing one row-pitch apart,
-// centred on the origin. Same-column => same parity => always on-grid, and two
-// points lock rotation. This is the primary, robust mounting footprint.
-//   Place the holder origin at the midpoint between two vertically-adjacent
-//   cells: (cell_x, cell_y + row_pitch/2).
-pub part PlugPair(
+// Two plugs side by side in the SAME row, two column-pitches apart (same
+// column parity, so both land in cells at the same height), centred on the
+// origin. Works on the one-row tray walls and locks rotation. The accessory's
+// origin goes midway between the two cells.
+pub part PlugRow(
     af = 14.0mm,
     wall = 2.4mm,
-    clear = 0.35mm,
-    barb = 0.45mm,
-    barb_h = 1.2mm,
-    surface_t = 2.0mm,
-) {
-    rp = row_pitch(af = af, wall = wall);
-    Plug(af = af, clear = clear, barb = barb, barb_h = barb_h, surface_t = surface_t)
-        .translate(y = [-rp / 2, rp / 2]);
-}
-
-// `n` plugs stacked vertically in one column, centred on the origin. Use for
-// tall holders that want more grip. n >= 2 locks rotation.
-pub part PlugColumn(
-    n = 2,
-    af = 14.0mm,
-    wall = 2.4mm,
-    clear = 0.35mm,
-    barb = 0.45mm,
-    barb_h = 1.2mm,
-    surface_t = 2.0mm,
-) {
-    rp = row_pitch(af = af, wall = wall);
-    ys = ([0 .. n - 1] - (n - 1) / 2) * rp;
-    Plug(af = af, clear = clear, barb = barb, barb_h = barb_h, surface_t = surface_t)
-        .translate(y = ys);
-}
-
-// `cols` vertical plug-columns of `rows` plugs each, the columns spaced TWO
-// column-pitches apart (same parity => all land on grid cells, no stagger).
-// Centred on the origin. This is the footprint big board holders ride on.
-//   Footprint spans ~ (cols-1)*2*col_pitch wide x (rows-1)*row_pitch tall.
-pub part PlugBed(
-    cols = 2,
-    rows = 2,
-    af = 14.0mm,
-    wall = 2.4mm,
-    clear = 0.35mm,
-    barb = 0.45mm,
-    barb_h = 1.2mm,
     surface_t = 2.0mm,
 ) {
     cp = col_pitch(af = af, wall = wall);
-    rp = row_pitch(af = af, wall = wall);
-    xs = ([0 .. cols - 1] - (cols - 1) / 2) * (2 * cp);
-    ys = ([0 .. rows - 1] - (rows - 1) / 2) * rp;
-    Plug(af = af, clear = clear, barb = barb, barb_h = barb_h, surface_t = surface_t)
-        .translate(x = xs, y = ys);
+    Plug(af = af, surface_t = surface_t).translate(x = [-cp, cp]);
 }

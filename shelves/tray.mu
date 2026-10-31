@@ -27,19 +27,47 @@ use std::ops::*;
 use super::params::*;
 use super::hexgrid::*;
 
-// Vertical shift of a wall's hex field. Centred (0) by default; `raised`
-// moves it up so the lowest full hexes sit `bottom` above the panel's lower
-// edge and the staggered column is cut open by the rim (half hexagons).
-fn field_shift(raised: Bool, height: Length, rows: Integer, af: Length, wall: Length, bottom: Length) {
-    rp = af + wall;   // row_pitch (fns can't call user fns in µcad 0.6)
-    lowest = -(rows - 1) / 2 * rp - rp / 4 - af / 2;
-    if raised { -height / 2 + bottom - lowest } else { 0mm }
+// Wall hex layouts (`wall_align`), for a wall panel `height` tall standing on
+// a `floor` thick floor:
+//   "center"     the fitted rows, centred on the wall.
+//   "raised"     lowest full hexes `bottom` above the floor; the staggered
+//                column is cut open by the rim (half hexagons at the top).
+//   "lowered"    highest full hexes `bottom` below the rim; the staggered
+//                column is cut by the floor (half hexagons at the bottom).
+//   "continuous" the honeycomb is anchored to the tray bottom: even-column
+//                hexes end 0.05mm above each multiple of the row pitch
+//                (16.4mm). With tray heights that are multiples of 16.4mm
+//                they open cleanly at the rim, the stacked tray's floor
+//                (plus a 0.45mm strip fused onto it) forms the web, and the
+//                pattern runs on through the whole stack in any order.
+// (fns can't call user fns in µcad 0.6, so the pitches are spelled out.)
+fn field_rows(align: String, fitted: Integer, height: Length, floor: Length, af: Length, wall: Length) {
+    rp = af + wall;
+    z0 = 0.05mm - af / 2;
+    if align == "continuous" { std::math::int((floor + height + af / 2 - z0) / rp) + 2 } else { fitted }
 }
 
-// A perforated rectangular panel in the XY plane, extruded `thick` in +Z,
-// centred on the origin. The hex columns are fitted into `field_w` (<= width,
-// e.g. to keep them clear of corner posts) with `margin` as extra border, and
-// the field is moved up by `shift`.
+fn field_shift(align: String, height: Length, rows: Integer, floor: Length, af: Length, wall: Length, bottom: Length) {
+    rp = af + wall;
+    lowest = -(rows - 1) / 2 * rp - rp / 4 - af / 2;
+    highest = (rows - 1) / 2 * rp + rp / 4 + af / 2;
+    z0 = 0.05mm - af / 2;   // continuous: centre of the first even hex
+    if align == "raised" { -height / 2 + bottom - lowest }
+    else if align == "lowered" { height / 2 - bottom - highest }
+    else if align == "continuous" { z0 - floor - height / 2 + (rows - 1) / 2 * rp + rp / 4 }
+    else { 0mm }
+}
+
+fn pick_rows(fitted: Integer, rows: Integer) {
+    if rows > 0 { rows } else { fitted }
+}
+
+// A perforated rectangular panel in the XY plane, `width` centred on x = 0
+// and `height` from y = 0 up (anchored at its lower edge, so callers place
+// that edge exactly), extruded `thick` centred on z = 0. The hex columns are
+// fitted into `field_w` (<= width, e.g. to keep them clear of corner posts)
+// with `margin` as extra border; the field is centred on the panel and moved
+// up by `shift`.
 part HexPanel(
     width: Length,
     height: Length,
@@ -49,13 +77,12 @@ part HexPanel(
     wall: Length,
     field_w: Length,
     shift = 0mm,
+    rows = 0,          // 0 = as many as fit
 ) {
     cols = fit_cols(span = field_w, margin = margin, af = af, wall = wall);
-    rows = fit_rows(span = height, margin = margin, af = af, wall = wall);
-    // Extrude is centred on the panel plane (z = -thick/2 .. +thick/2) so that
-    // after rotation the wall thickness straddles its placement plane.
-    (Rect(width = width, height = height)
-        - HexField(cols = cols, rows = rows, af = af, wall = wall).translate(y = shift))
+    n_rows = pick_rows(fitted = fit_rows(span = height, margin = margin, af = af, wall = wall), rows = rows);
+    (Rect(width = width, height = height, x = -width / 2, y = 0mm)
+        - HexField(cols = cols, rows = n_rows, af = af, wall = wall).translate(y = height / 2 + shift))
         .extrude(height = thick)
         .translate(z = -thick / 2);
 }
@@ -74,10 +101,10 @@ pub part Tray(
     margin = 4.0mm,            // solid border per face (smaller = airier)
     // stacking corner posts
     post = 10.0mm,             // corner-post footprint (square)
-    // wall hex layout: centred, or raised (full hexes low, half hexes open
-    // at the rim) — useful when the wall is too low for a staggered row.
-    raised_walls = false,
-    wall_bottom = 1.5mm,       // web under the lowest full wall hexes (raised)
+    // wall hex layout: "center" | "raised" | "lowered" | "continuous"
+    // (see field_shift above)
+    wall_align = "center",
+    wall_bottom = 1.5mm,       // web below/above the full hexes (raised/lowered)
 ) {
     wall_h = height - floor;
     // Peg/socket centres sit on the corner posts (post centred in each corner).
@@ -89,31 +116,45 @@ pub part Tray(
     floor_panel = HexPanel(
         width = width, height = depth, thick = floor,
         margin = margin, af = af, wall = hexwall, field_w = width,
-    ).translate(z = floor / 2);
+    ).translate(y = -depth / 2, z = floor / 2);
 
-    // Wall hex fields stay clear of the corner posts.
-    wall_rows = fit_rows(span = wall_h, margin = margin, af = af, wall = hexwall);
-    shift = field_shift(raised = raised_walls, height = wall_h, rows = wall_rows,
-                        af = af, wall = hexwall, bottom = wall_bottom);
+    // Joints overlap instead of touching: this geometry kernel leaves
+    // non-manifold edges where faces only coincide (and 90° rotations add
+    // float noise, so "coincide" is never exact). So the walls sit `inset`
+    // inside the outer edge, reach `sink` down into the floor, end inside the
+    // corner posts, and are built `over` too tall and cut with the whole box
+    // to `height`. Hexes cut down to the panel's lower edge end inside the
+    // floor. The hex fields stay clear of the corner posts.
+    inset = 0.3mm;
+    sink = 0.5mm;
+    over = 1mm;
+    panel_h = sink + wall_h + over;
+    wall_rows = field_rows(align = wall_align,
+                           fitted = fit_rows(span = wall_h, margin = margin, af = af, wall = hexwall),
+                           height = wall_h, floor = floor, af = af, wall = hexwall);
+    // field_shift is relative to the wall's centre; the panel's centre is
+    // (over - sink) / 2 higher
+    shift = field_shift(align = wall_align, height = wall_h, rows = wall_rows, floor = floor,
+                        af = af, wall = hexwall, bottom = wall_bottom) - (over - sink) / 2;
 
-    // ---- Walls: four perforated panels standing on the floor ---------------
+    // ---- Walls: four perforated panels standing in the floor ---------------
     front_back = HexPanel(
-        width = width, height = wall_h, thick = wall,
+        width = width - 2 * inset - 2mm, height = panel_h, thick = wall,
         margin = margin, af = af, wall = hexwall,
-        field_w = width - 2 * post + 2 * margin, shift = shift,
+        field_w = width - 2 * post + 2 * margin, shift = shift, rows = wall_rows,
     ).rotate(x = 90°);
     fb = front_back
-        .translate(z = floor + wall_h / 2)
-        .translate(y = [-(depth / 2 - wall / 2), depth / 2 - wall / 2]);
+        .translate(z = floor - sink)
+        .translate(y = [-(depth / 2 - inset - wall / 2), depth / 2 - inset - wall / 2]);
 
     left_right = HexPanel(
-        width = depth, height = wall_h, thick = wall,
+        width = depth - 2 * inset - 2mm, height = panel_h, thick = wall,
         margin = margin, af = af, wall = hexwall,
-        field_w = depth - 2 * post + 2 * margin, shift = shift,
+        field_w = depth - 2 * post + 2 * margin, shift = shift, rows = wall_rows,
     ).rotate(x = 90°).rotate(z = 90°);
     lr = left_right
-        .translate(z = floor + wall_h / 2)
-        .translate(x = [-(width / 2 - wall / 2), width / 2 - wall / 2]);
+        .translate(z = floor - sink)
+        .translate(x = [-(width / 2 - inset - wall / 2), width / 2 - inset - wall / 2]);
 
     // ---- Solid corner posts (full height) ----------------------------------
     // Each post is flush with the tray's outer corner and runs from z=0 to the
@@ -127,11 +168,15 @@ pub part Tray(
         .translate(z = SOCKET_DEPTH / 2)
         .translate(x = [-px, px], y = [-py, py]);
 
-    // Assemble the box, then carve the stacking sockets.
-    (floor_panel | fb | lr | posts) - sockets;
+    // Assemble the box (the floor leaves room for the posts, so their faces
+    // meet instead of overlapping), cut it to height, carve the sockets.
+    (((floor_panel - posts) | fb | lr | posts)
+        & Cube(size_x = width + 2mm, size_y = depth + 2mm, size_z = height).translate(z = height / 2))
+        - sockets;
 
     // ---- Stacking pegs on top of the posts ---------------------------------
-    Cylinder(diameter = PEG_D, height = PEG_H)
-        .translate(z = height + PEG_H / 2)
+    // (starts 0.5mm inside the post, so it fuses whatever the float rounding)
+    Cylinder(diameter = PEG_D, height = PEG_H + 0.5mm)
+        .translate(z = height - 0.5mm + (PEG_H + 0.5mm) / 2)
         .translate(x = [-px, px], y = [-py, py]);
 }

@@ -23,10 +23,14 @@ The whole system is built around **one universal honeycomb hex grid**:
    ├───────────────┤
    │  tray_std     │   ◄── nRF52840-DK
    ├───────────────┤
-   │  tray_low     │   ◄── Pico (raised walls: full hexes + open half hexes)
+   │  tray_low     │   ◄── Pico
    └───────────────┘
      pegs↑ sockets↓      hex floor: posts snap into any cell
 ```
+
+Trays are 32.8mm (std) and 16.4mm (low) tall — multiples of the 16.4mm hex
+row pitch — so with `wall_align = "continuous"` the wall honeycomb runs on
+unbroken through any stack, in any order.
 
 ## What you get
 
@@ -35,9 +39,9 @@ The whole system is built around **one universal honeycomb hex grid**:
 | `shelves.mu` | Library root (declares the modules in `shelves/`). |
 | `shelves/params.mu` | Master constants (footprint, hex pitch, plug, pegs). |
 | `shelves/hexgrid.mu` | Honeycomb generator + the shared **cell coordinate system**. |
-| `shelves/connector.mu` | The snap-in **hex plug** + plug groups (`PlugPair`, …). |
+| `shelves/connector.mu` | The snap-in **hex plug** + `PlugRow` (two plugs, for wall accessories). |
 | `shelves/holders.mu` | `CornerPost` — one board corner, plugs into a floor cell. |
-| `shelves/cables.mu` | `CableComb` / `CableHook` — cable management for the walls. |
+| `shelves/cables.mu` | `CableComb` / `CableClip` — cable management for the walls. |
 | `shelves/tray.mu` | `Tray` — the stackable hex-grid box. |
 | `devices.toml` | Board data: outline, holes, connectors, required lift. |
 | `shelves.toml` | Build manifest — declares which STLs to produce. |
@@ -71,8 +75,8 @@ the generated `lib.mu`.
 [[shelf]]
 kind   = "tray"
 name   = "tray_low"
-height = "20mm"
-raised_walls = true     # full hexes low on the wall, half hexes open at the rim
+height = "16.4mm"
+wall_align = "continuous"   # "center" | "raised" | "lowered" | "continuous"
 
 # Corner posts for one board -> build/holder_rpi4_a.stl, _b.stl, + _plan.txt
 [[shelf]]
@@ -80,28 +84,45 @@ kind   = "holder"
 device = "rpi4"         # a key of devices.toml
 name   = "holder_rpi4"
 tray   = "tray_std"     # tray it goes in (used for --preview)
+count  = 2              # optional: several boards in one tray
 
 # A cable accessory that clips into a hex wall.
 [[shelf]]
-kind   = "cable_comb"   # "cable_comb" (teeth=N) | "cable_hook" (opening=…)
+kind   = "cable_comb"   # "cable_comb" (teeth=N) | "cable_clip" (opening=…)
 name   = "cable_comb_4"
 teeth  = 4
 ```
 
-## Board holders (corner posts)
+## Wall layouts (`wall_align`)
 
-A board is held by four `CornerPost`s. Each post is a prism: the hull of a hex
-**shoulder** (a bit larger than the floor hole, so it rests on the web) and a
-round **pad** under the board hole. Below it hangs the snap **plug**.
+| Mode | Wall hexes |
+|---|---|
+| `center` | the rows that fit, centred on the wall |
+| `raised` | full hexes low on the wall, the staggered column open at the rim |
+| `lowered` | full hexes high, the staggered column cut by the floor |
+| `continuous` | honeycomb anchored to the tray bottom; with heights that are multiples of 16.4mm it continues through a whole stack, the stacked tray's floor forming one web |
+
+## Board holders (posts)
+
+A board is held by `CornerPost`s. Each post is a prism: the hull of a hex
+**shoulder** (a bit larger than the floor hole, so it rests on the web) and one
+or two round **pads** under board holes. Below it hangs the snap **plug**.
+Holes closer than 25mm share one two-pad post (a Pico or Pi Zero sits on two
+posts; neighbouring boards in one tray share the posts between them), and no
+two posts may overlap.
 
 Board holes rarely sit over cell centres, so the pad is offset from the plug.
 `scripts/build.py` plans every board:
 
 * it tries all four board rotations and every position on the floor grid,
   and picks the one that leaves the **most room in front of the board's
-  connectors** (boards are not centred — the connector sides get the space);
+  connectors**, most cramped connector first (boards are not centred — the
+  connector sides get the space);
 * each hole gets the nearest usable floor cell; the post offset is the hole's
   offset from that cell centre;
+* with `count = N`, the boards are laid out in a row along the tray's length
+  or width, all turned the same way or alternating by 180°, with the gap
+  between them varied — the layout with the most connector room wins;
 * posts whose offsets differ only by a multiple of 60° are the **same part**
   (the hex plug fits a cell in six orientations), so a rectangular hole pattern
   usually needs two post variants, printed twice each.
@@ -135,10 +156,11 @@ connector positions are approximations — measure your board.**
 ## Where the cables go
 
 * Out through the **wall hexes** — 14mm across flats, enough for RJ45 and
-  USB-A plugs.
+  USB-A plugs. Two Pi 4 in one tray leave only ~3mm in front of USB/Ethernet,
+  so those cables must go through the wall.
 * Dressed along any wall with **`CableComb`** (several cables side by side) or
-  **`CableHook`** (a J-hook for a bundle). Both clip into two vertically
-  adjacent wall cells.
+  **`CableClip`** (a channel for a bundle). Both clip into two same-height
+  wall cells two columns apart, and print outer face down (plugs up).
 
 ## Adding a device
 
@@ -182,6 +204,17 @@ Properties of µcad 0.6 worth knowing before editing `shelves/`:
   choices in a `fn` (e.g. `min_len` in `holders.mu`).
 * **3D `hull()` exports an empty mesh**; 2D `hull()` works, so hull sketches
   and extrude them.
+* **A part with several top-level statements is a group**: `Tray() & Cube()`
+  comes out empty — flatten with `.union()` first. Several 2D booleans on
+  multi-child sketches (`HexField - Rect`, `(Rect - HexField) | Rect`) come
+  out empty too; do such fixes in 3D.
+* **Faces that merely coincide break the union** (non-manifold edges), and
+  90° rotations add float noise, so "coincide" is never exact: overlap parts
+  instead (walls sit 0.3mm inside the outer edge and 0.5mm into the floor;
+  the floor leaves room for the corner posts). Heights like 32.8mm aren't
+  exact floats either, so the tray is cut to height in one go.
+* **Check the geometry visually**: a box that lost its walls is still a valid
+  solid. `make preview` and render.
 * **Extrude grows +Z from 0**; translate by `−thick/2` to centre a panel before
   rotating it into a wall.
 * `#[export("path.stl")]` on a named statement (`name = Part(..);`) emits one
@@ -192,7 +225,8 @@ Properties of µcad 0.6 worth knowing before editing `shelves/`:
 
 * PETG/ABS for trays near warm SBCs; PLA fine for cool MCU boards.
 * Walls/floor/webs are multiples of a 0.4 mm line for clean slicing.
-* Corner posts print **upside down** (pad on the bed, plug pointing up).
+* Corner posts print **upside down** (pad on the bed, plug pointing up);
+  cable combs / clips print outer face down, plugs up.
 * Plug fit is `HEX_AF − PLUG_CLEAR` (0.35 mm); the barb sticks out
   `PLUG_BARB` (0.35 mm) past the shaft. PLA works, PETG flexes more kindly.
   Tune both in `Plug` (`shelves/connector.mu`) to match your printer.
