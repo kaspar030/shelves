@@ -29,7 +29,8 @@ pub const CLEARANCE = 0.3mm;
 // Floor AND walls are perforated with this honeycomb. The same hex cell is the
 // mounting grid: accessories clip in with matching hex plugs. Changing these
 // re-flows the whole system (grid + every plug) consistently.
-pub const HEX_AF   = 14.0mm;   // hex hole across-flats size
+pub const HEX_AF   = 14.0mm;   // floor hex hole across-flats size (mounting grid)
+pub const WALL_HEX_AF = 17.0mm; // wall hexes: large enough for RJ45 plugs
 pub const HEX_WALL = 2.4mm;    // web between holes (thin = airier; also sets plug pitch)
 pub const HEX_MARGIN = 4.0mm;  // solid border kept around each perforated face
 

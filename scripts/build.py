@@ -49,6 +49,9 @@ HEX_AF, HEX_WALL, HEX_MARGIN = 14.0, 2.4, 4.0
 SQRT3 = math.sqrt(3.0)
 COL_PITCH = 0.75 * 2 * (HEX_AF / SQRT3) + HEX_WALL * SQRT3 / 2
 ROW_PITCH = HEX_AF + HEX_WALL
+WALL_AF = 17.0                            # wall hexes (Tray wall_af)
+WALL_COL_PITCH = 0.75 * 2 * (WALL_AF / SQRT3) + HEX_WALL * SQRT3 / 2
+WALL_ROW_PITCH = WALL_AF + HEX_WALL
 SHOULDER_R = (HEX_AF + 2 * 1.5) / SQRT3   # CornerPost shoulder circumradius
 POST_PAD_D = 6.0                          # CornerPost pad diameter
 
@@ -64,14 +67,16 @@ KINDS = {"tray", "holder", "cable_comb", "cable_clip"}
 
 
 # --- Floor hex grid (mirrors shelves/hexgrid.mu) -----------------------------
-def fit_cols(span: float, margin: float) -> int:
-    usable = span - 2 * margin - 2 * HEX_AF / SQRT3
-    return max(1, int(usable // COL_PITCH) + 1)
+def fit_cols(span: float, margin: float, af: float = HEX_AF) -> int:
+    cp = 0.75 * 2 * (af / SQRT3) + HEX_WALL * SQRT3 / 2
+    usable = span - 2 * margin - 2 * af / SQRT3
+    return max(1, int(usable // cp) + 1)
 
 
-def fit_rows(span: float, margin: float) -> int:
-    usable = span - 2 * margin - HEX_AF + ROW_PITCH / 2
-    return max(1, int(usable // ROW_PITCH))
+def fit_rows(span: float, margin: float, af: float = HEX_AF) -> int:
+    rp = af + HEX_WALL
+    usable = span - 2 * margin - af + rp / 2
+    return max(1, int(usable // rp))
 
 
 FLOOR_COLS = fit_cols(TRAY_W, HEX_MARGIN)
@@ -116,27 +121,27 @@ def nearest_cell(x: float, y: float) -> tuple[int, int] | None:
 
 # --- Wall hexes (mirrors shelves/tray.mu) -------------------------------------
 def _field_rows(align, fitted, wall_h):
-    z0 = 0.05 - HEX_AF / 2
+    z0 = 0.05 - WALL_AF / 2
     if align == "continuous":
-        return int((FLOOR + wall_h + HEX_AF / 2 - z0) / ROW_PITCH) + 2
+        return int((FLOOR + wall_h + WALL_AF / 2 - z0) / WALL_ROW_PITCH) + 2
     return fitted
 
 
 def _field_shift(align, wall_h, rows):
-    rp = ROW_PITCH
-    lowest = -(rows - 1) / 2 * rp - rp / 4 - HEX_AF / 2
-    highest = (rows - 1) / 2 * rp + rp / 4 + HEX_AF / 2
+    rp = WALL_ROW_PITCH
+    lowest = -(rows - 1) / 2 * rp - rp / 4 - WALL_AF / 2
+    highest = (rows - 1) / 2 * rp + rp / 4 + WALL_AF / 2
     if align == "raised":
         return -wall_h / 2 + WALL_BOTTOM - lowest
     if align == "lowered":
         return wall_h / 2 - WALL_BOTTOM - highest
     if align == "continuous":
-        return 0.05 - HEX_AF / 2 - FLOOR - wall_h / 2 + (rows - 1) / 2 * rp + rp / 4
+        return 0.05 - WALL_AF / 2 - FLOOR - wall_h / 2 + (rows - 1) / 2 * rp + rp / 4
     return 0.0
 
 
 def tray_height(tray: dict) -> float:
-    return float(str(tray.get("height", "32.8mm")).removesuffix("mm"))
+    return float(str(tray.get("height", "38.8mm")).removesuffix("mm"))
 
 
 def wall_hexes(tray: dict):
@@ -145,18 +150,18 @@ def wall_hexes(tray: dict):
     height = tray_height(tray)
     align = tray.get("wall_align", "center")
     wall_h = height - FLOOR
-    rows = _field_rows(align, fit_rows(wall_h, HEX_MARGIN), wall_h)
+    rows = _field_rows(align, fit_rows(wall_h, HEX_MARGIN, WALL_AF), wall_h)
     shift = _field_shift(align, wall_h, rows) - (WALL_OVER - WALL_SINK) / 2
     panel_h = WALL_SINK + wall_h + WALL_OVER
     mid = FLOOR - WALL_SINK + panel_h / 2 + shift
     out = {}
     for walls, length in ((("front", "back"), TRAY_W), (("left", "right"), TRAY_D)):
-        cols = fit_cols(length - 2 * POST + 2 * HEX_MARGIN, HEX_MARGIN)
+        cols = fit_cols(length - 2 * POST + 2 * HEX_MARGIN, HEX_MARGIN, WALL_AF)
         hexes = []
         for c in range(cols):
-            lat = (c - (cols - 1) / 2) * COL_PITCH
+            lat = (c - (cols - 1) / 2) * WALL_COL_PITCH
             for r in range(rows):
-                z = mid + (r - (rows - 1) / 2) * ROW_PITCH - ROW_PITCH / 4 + (c % 2) * ROW_PITCH / 2
+                z = mid + (r - (rows - 1) / 2) * WALL_ROW_PITCH - WALL_ROW_PITCH / 4 + (c % 2) * WALL_ROW_PITCH / 2
                 hexes.append((lat, z))
         for wname in walls:
             out[wname] = hexes
@@ -169,11 +174,11 @@ def through_lifts(hexes, lat, port_z0, plug, top):
     between the floor and the rim). Returns a list of (lo, hi) intervals."""
     a = plug[0] / 2 + THROUGH_CLEAR
     b = plug[1] / 2 + THROUGH_CLEAR
-    r = HEX_AF / SQRT3
+    r = WALL_AF / SQRT3
     out = []
     for hl, hz in hexes:
         dx = abs(lat - hl)
-        reach = min(HEX_AF / 2 - b, SQRT3 * (r - dx - a) - b)
+        reach = min(WALL_AF / 2 - b, SQRT3 * (r - dx - a) - b)
         if reach < 0:
             continue
         lo, hi = max(hz - reach, FLOOR + b), min(hz + reach, top - b)
@@ -440,8 +445,11 @@ def plan_group(dev: dict, group, tray: dict, region=INNER, step: float = 1.0):
         lift, status, bad = assess_ports(dev, items, hexes, lift_range, top)
         # fewest unreachable ports, then leximin over the room in front of the
         # ports plugged from inside (most cramped first)
+        # (through the wall ranks just below plenty of room inside)
+        top_b = int(SOCKET_ROOM_CAP // ROOM_STEP)
         bucket = (-bad,) + tuple(sorted(
-            SOCKET_ROOM_CAP // ROOM_STEP if st != "ok" else int(min(r, SOCKET_ROOM_CAP) // ROOM_STEP)
+            int(min(r, SOCKET_ROOM_CAP) // ROOM_STEP) if st == "ok"
+            else top_b - 1 if st == "through wall hex" else 0
             for _, _, r, st in status))
         if best is not None and bucket < best[0][0]:
             continue

@@ -1,8 +1,8 @@
 // Copyright © 2026
 // SPDX-License-Identifier: MIT
 //
-// Cable-management accessories that clip into a tray WALL (the floor works
-// too). Both ride on a `PlugRow`: two plugs in same-height cells two columns
+// Cable-management accessories that clip into a tray WALL (17mm hexes; set
+// `af = 14mm` for the floor). Both ride on a `PlugRow`: two plugs in same-height cells two columns
 // apart, which exist on every wall layout.
 //
 // WHERE THE CABLES GO: out through the wall hexes (large enough for RJ45 and
@@ -44,7 +44,7 @@ pub part CableComb(
     lip = 1.2mm,           // mouth depth
     base_t = 2.4mm,        // solid layer between the wall and the channels
     shoulder = 1.5mm,
-    af = 14.0mm,
+    af = 17.0mm,           // = WALL_HEX_AF (the tray walls' hexes)
     wall = 2.4mm,
     surface_t = 2.0mm,
 ) {
@@ -74,7 +74,7 @@ pub part CableClip(
     bar = 2mm,             // lip thickness
     base_t = 2.4mm,
     shoulder = 1.5mm,
-    af = 14.0mm,
+    af = 17.0mm,           // = WALL_HEX_AF (the tray walls' hexes)
     wall = 2.4mm,
     surface_t = 2.0mm,
 ) {

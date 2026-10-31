@@ -20,24 +20,25 @@
 # Shelf names must be lowercase identifiers.
 
 # --- trays ------------------------------------------------------------------
-# Heights are multiples of the 16.4mm hex row pitch, so with
-# wall_align = "continuous" the wall honeycomb runs on through any stack.
+# Heights are multiples of the 19.4mm wall hex row pitch (17mm hexes + 2.4mm
+# web), so with wall_align = "continuous" the wall honeycomb runs on through
+# any stack. Boards with USB-A / RJ45 need room inside or a custom tray.
 [[shelf]]
 kind   = "tray"
 name   = "tray_std"
-height = "32.8mm"        # Raspberry Pi 4, Nucleo, nRF52840-DK
+height = "38.8mm"        # Raspberry Pi 4, Nucleo, nRF52840-DK
 wall_align = "continuous"
 
 [[shelf]]
 kind   = "tray"
 name   = "tray_low"
-height = "16.4mm"        # Pico, Pi Zero
+height = "19.4mm"        # Pico, Pi Zero
 wall_align = "continuous"
 
 [[shelf]]
 kind   = "tray"
 name   = "tray_tall"
-height = "49.2mm"        # boards with HATs, tall cooling
+height = "58.2mm"        # boards with HATs, tall cooling
 wall_align = "continuous"
 
 # --- board holders (corner posts that clip into a tray floor) ---------------
@@ -72,11 +73,8 @@ name   = "holder_nrf52840dk"
 # Two Nucleo-64 don't fit: side by side they reach past the tray's corner
 # stacking posts, and at 82.5mm they are too deep to pass between them.
 
-[[shelf]]
-kind   = "holder"
-device = "rpi4"
-name   = "holder_rpi4_x2"
-count  = 2
+# Two Raspberry Pi 4 fit, but leave ~3mm in front of USB-A / Ethernet, and
+# those plugs don't pass a wall hex: boards like that get custom trays.
 
 [[shelf]]
 kind   = "holder"

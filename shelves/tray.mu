@@ -36,10 +36,11 @@ use super::hexgrid::*;
 //                column is cut by the floor (half hexagons at the bottom).
 //   "continuous" the honeycomb is anchored to the tray bottom: even-column
 //                hexes end 0.05mm above each multiple of the row pitch
-//                (16.4mm). With tray heights that are multiples of 16.4mm
-//                they open cleanly at the rim, the stacked tray's floor
-//                (plus a 0.45mm strip fused onto it) forms the web, and the
-//                pattern runs on through the whole stack in any order.
+//                (19.4mm for 17mm wall hexes). With tray heights that
+//                are multiples of it they open cleanly at the rim, the
+//                stacked tray's floor (plus a 0.45mm strip fused onto it)
+//                forms the web, and the pattern runs on through the whole
+//                stack in any order.
 // (fns can't call user fns in µcad 0.6, so the pitches are spelled out.)
 fn field_rows(align: String, fitted: Integer, height: Length, floor: Length, af: Length, wall: Length) {
     rp = af + wall;
@@ -96,7 +97,8 @@ pub part Tray(
     wall = 2.0mm,              // perforated-panel thickness (thinner = airier)
     floor = 2.0mm,             // = params::FLOOR
     // hex grid
-    af = 14.0mm,               // = params::HEX_AF
+    af = 14.0mm,               // = params::HEX_AF (floor: the mounting grid)
+    wall_af = 17.0mm,          // = params::WALL_HEX_AF (walls: passes RJ45 plugs)
     hexwall = 2.4mm,           // web between holes (thinner = more open)
     margin = 4.0mm,            // solid border per face (smaller = airier)
     // stacking corner posts
@@ -130,17 +132,17 @@ pub part Tray(
     over = 1mm;
     panel_h = sink + wall_h + over;
     wall_rows = field_rows(align = wall_align,
-                           fitted = fit_rows(span = wall_h, margin = margin, af = af, wall = hexwall),
-                           height = wall_h, floor = floor, af = af, wall = hexwall);
+                           fitted = fit_rows(span = wall_h, margin = margin, af = wall_af, wall = hexwall),
+                           height = wall_h, floor = floor, af = wall_af, wall = hexwall);
     // field_shift is relative to the wall's centre; the panel's centre is
     // (over - sink) / 2 higher
     shift = field_shift(align = wall_align, height = wall_h, rows = wall_rows, floor = floor,
-                        af = af, wall = hexwall, bottom = wall_bottom) - (over - sink) / 2;
+                        af = wall_af, wall = hexwall, bottom = wall_bottom) - (over - sink) / 2;
 
     // ---- Walls: four perforated panels standing in the floor ---------------
     front_back = HexPanel(
         width = width - 2 * inset - 2mm, height = panel_h, thick = wall,
-        margin = margin, af = af, wall = hexwall,
+        margin = margin, af = wall_af, wall = hexwall,
         field_w = width - 2 * post + 2 * margin, shift = shift, rows = wall_rows,
     ).rotate(x = 90°);
     fb = front_back
@@ -149,7 +151,7 @@ pub part Tray(
 
     left_right = HexPanel(
         width = depth - 2 * inset - 2mm, height = panel_h, thick = wall,
-        margin = margin, af = af, wall = hexwall,
+        margin = margin, af = wall_af, wall = hexwall,
         field_w = depth - 2 * post + 2 * margin, shift = shift, rows = wall_rows,
     ).rotate(x = 90°).rotate(z = 90°);
     lr = left_right

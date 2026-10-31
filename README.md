@@ -28,9 +28,11 @@ The whole system is built around **one universal honeycomb hex grid**:
      pegs↑ sockets↓      hex floor: posts snap into any cell
 ```
 
-Trays are 16.4mm (low), 32.8mm (std) and 49.2mm (tall) — multiples of the 16.4mm hex
-row pitch — so with `wall_align = "continuous"` the wall honeycomb runs on
-unbroken through any stack, in any order.
+The floor has 14mm hexes (the mounting grid), the walls 17mm hexes (large
+enough to pass RJ45 plugs). Trays are 19.4mm (low), 38.8mm (std) and 58.2mm
+(tall) — multiples of the 19.4mm wall row pitch — so with
+`wall_align = "continuous"` the wall honeycomb runs on unbroken through any
+stack, in any order.
 
 ## What you get
 
@@ -75,7 +77,7 @@ the generated `lib.mu`.
 [[shelf]]
 kind   = "tray"
 name   = "tray_low"
-height = "16.4mm"
+height = "19.4mm"
 wall_align = "continuous"   # "center" | "raised" | "lowered" | "continuous"
 
 # Corner posts for one board -> build/holder_rpi4_a.stl, _b.stl, + _plan.txt
@@ -100,7 +102,7 @@ teeth  = 4
 | `center` | the rows that fit, centred on the wall |
 | `raised` | full hexes low on the wall, the staggered column open at the rim |
 | `lowered` | full hexes high, the staggered column cut by the floor |
-| `continuous` | honeycomb anchored to the tray bottom; with heights that are multiples of 16.4mm it continues through a whole stack, the stacked tray's floor forming one web |
+| `continuous` | honeycomb anchored to the tray bottom; with heights that are multiples of 19.4mm it continues through a whole stack, the stacked tray's floor forming one web |
 
 ## Board holders (posts)
 
@@ -144,8 +146,10 @@ length]` in `devices.toml`, typical moulded plugs):
   the hex rows;
 * **TOO TIGHT** — neither; the planner minimises these first.
 
-A 14mm wall hex passes plugs up to about 11.7 × 7mm (with 0.4mm clearance):
-micro-USB and micro-HDMI, not USB-A (~16 × 8) or RJ45 (~12 × 11).
+A 17mm wall hex passes plugs up to about 12 × 11mm (with 0.4mm clearance):
+micro-USB, micro-HDMI, USB-C and RJ45, not USB-A (~16 × 8, needs ~19mm).
+Boards whose USB-A ports can't get room inside get custom trays. The plug
+sizes in `devices.toml` are typical values — measure your cables.
 
 ## Board data (`devices.toml`)
 
@@ -157,7 +161,8 @@ connector positions are approximations — measure your board.**
 
 ## How the hex grid works (the core idea)
 
-* **Honeycomb**: flats top/bottom, across-flats `HEX_AF = 14mm`, web
+* **Honeycomb**: flats top/bottom, across-flats `HEX_AF = 14mm` (floor;
+  walls `WALL_HEX_AF = 17mm`), web
   `HEX_WALL = 2.4mm` between holes. Nearest-neighbour hole centres are exactly
   `HEX_AF + HEX_WALL = 16.4mm` apart → a uniform 2.4mm web everywhere.
 * **Cell coordinate system** (`shelves/hexgrid`): `cell_x(col)` /
@@ -170,12 +175,12 @@ connector positions are approximations — measure your board.**
 
 ## Where the cables go
 
-* Out through the **wall hexes** — 14mm across flats, enough for RJ45 and
-  USB-A plugs. Two Pi 4 in one tray leave only ~3mm in front of USB/Ethernet,
-  so those cables must go through the wall.
+* Out through the **wall hexes** — 17mm across flats, enough for RJ45, USB-C
+  and micro-USB plugs (not USB-A).
 * Dressed along any wall with **`CableComb`** (several cables side by side) or
   **`CableClip`** (a channel for a bundle). Both clip into two same-height
-  wall cells two columns apart, and print outer face down (plugs up).
+  wall cells two columns apart (17mm plugs), and print outer face down
+  (plugs up).
 
 ## Adding a device
 
